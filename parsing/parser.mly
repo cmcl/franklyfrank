@@ -1,58 +1,64 @@
 %{
 
-  open Parsetree
+  open ParseTree
+  open ParseTreeBuilder
+
+  let mktyp k = Type.mk k
 
 %}
 
-%token ARROW
 %token BAR
 %token COLON
-%token COMMA
 %token DATA
-%token DEDENT
+%token DOT
 %token EOF
 %token EQUAL
-%token <int> INT
-%token <float> FLOAT
 %token <string> ID
-%token <string> STRING
-%token TRUE
-%token FALSE
-%token INDENT
-%token LBRACKET
-%token RBRACKET
-%start program
+%token LARROW
+
+%left LARROW
+
+%start <ParseTree.prog> program
 
 %%
 
 program:
-  | EOF        { None }
-  | p = decl   { Some p }
+  | list(term) EOF      { $1 }
   ;
 
-decl:
-  | DATA ID opt_type_parameters EQUAL constructor_decls
-      { (* make a datatype here *) }
-  | ID COLON type_definition { (* make a handler here *) }
+term:
+  | DATA ID opt_type_parameters EQUAL opt_constructor_decls DOT
+      { Datatype.mk $2 ~params:$3 ~cstrs:$4 }
+  | ID COLON type_expression { ValueDecl.mk $1 $3 }
   ;
 
 opt_type_parameters:
-  | (* empty *)      { [] }
-  | type_parameter_list { List.rev $1 }
-  ;
-
-type_parameter_list:
-  | type_variable    { [$1] }
-  | type_parameter_list type_variable { $2 :: $1 }
+  | ps = list(type_variable)      { ps }
   ;
 
 type_variable:
-  | ID       { (* make a type variable here *) }
+  | ID       { mktyp(typ_var $1) }
   ;
 
-constructor_decls:
+opt_constructor_decls:
   | (* empty *)                            { [] }
+  | constructor_decls                      { $1 }
+
+constructor_decls:
   | constructor_decl                       { [$1] }
   | bar_constructor_decl                   { [$1] }
   | constructor_decls bar_constructor_decl { $2 :: $1 }
+  ;
+
+constructor_decl:
+  | ID COLON type_expression          { mktyp(typ_cstr $1 $3) }
+  ;
+
+bar_constructor_decl:
+  | BAR constructor_decl                   { $2 }
+  ;
+
+type_expression:
+  | type_variable                          { mktyp(typ_var $1) }
+  | type_expression LARROW type_expression { mktyp(typ_arrow $1 $3) }
   ;

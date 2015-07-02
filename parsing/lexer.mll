@@ -1,0 +1,49 @@
+(***********************************************************************
+ * Lexer for Frank source language.
+ *
+ * Created by Craig McLaughlin on 1/6/2015.
+ ***********************************************************************
+ *)
+
+{
+  open Lexing
+  open Parser
+
+  exception SyntaxError of string
+
+  let next_line lexbuf =
+    let pos = lexbuf.lex_curr_p in
+    lexbuf.lex_curr_p <-
+      { pos with pos_bol = lexbuf.lex_curr_pos
+	         pos_lnum = pos.pos_lnum + 1
+      }
+}
+
+let int = '-'? ['0'-'9']+
+let white = [' ' '\t']+
+let newline = '\r' | '\n' | "\r\n"
+let alpha =  ['a'-'z' 'A'-'Z' '_']
+let alphanumeric = alpha | ['0'-'9']
+let id = alpha alphanumeric*
+
+rule token = parse
+  | white     { token lexbuf }
+  | newline   { next_line lexbuf; token lexbuf }
+  | int       { INT (int_of_string (Lexing.lexeme lexbuf)) }
+  | "as"      { AS }
+  | "data"    { DATA }
+  | "true"    { TRUE }
+  | "false"   { FALSE }
+  | '{'       { LBRACE }
+  | '['       { LBRACKET }
+  | '('       { LPAREN }
+  | '}'       { RBRACE }
+  | ']'       { RBRACKET }
+  | ')'       { RPAREN }
+  | ':'       { COLON }
+  | '='       { EQUAL }
+  | '|'       { BAR }
+  | '->'      { LARROW }
+  | '.'       { DOT }
+  | id        { ID }
+  | eof       { EOF}
