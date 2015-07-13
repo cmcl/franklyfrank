@@ -9,13 +9,10 @@
 type prog = term list
 
 and term =
-  | Term_decl of src_declaration
-  | Term_defn of src_definition
-
-and src_declaration =
-  | Decl_datatype of datatype_declaration
-  | Decl_effin of effect_interface
-  | Decl_value of value_declaration
+  | Sterm_datatype of datatype_declaration
+  | Sterm_effin of effect_interface
+  | Sterm_vdecl of value_declaration
+  | Sterm_vdefn of value_definition
 
 and checkable_computation =
   | CComp_cvalue of checkable_value
@@ -25,7 +22,7 @@ and checkable_computation =
 
 and checkable_value =
   | CValue_ivalue of inferable_value
-  | CValue_construct of string * checkable_value list
+  | CValue_ctr of string * checkable_value list
   | CValue_thunk of checkable_computation
 
 and inferable_value =
@@ -34,45 +31,39 @@ and inferable_value =
   | IValue_effsig of string
   | IValue_icomp
 
-and src_definition =
+and value_definition =
   {
-    name : string;
-    args : string list;
-    comp : checkable_computation;
+    vdef_name : string;
+    vdef_args : string list;
+    vdef_comp : checkable_computation;
   }
 
 and datatype_declaration =
   {
-    name : string;
-    parameters : string list;
-    constructors : constructor_declaration list;
+    sdt_name : string;
+    sdt_parameters : src_type list;
+    sdt_constructors : src_type list;
   }
 
 and effect_interface = 
   {
-    name : string
-    parameters: string list;
-    signatures : string;
+    sei_name : string;
+    sei_parameters: string list;
+    sei_signatures : string;
   }
 
 and value_declaration =
   {
-    valdec_name : string;
-    valdec_type : src_type;
-  }
-
-and constructor_declaration =
-  {
-    cstr_name : string;
-    cstr_type : src_type;
+    svdecl_name : string;
+    svdecl_type : src_type;
   }
 
 and src_type =
   {
-    typ_desc : src_type_desc
+    styp_desc : src_type_desc
   }
 
 and src_type_desc =
-  | typ_var of string (* type variable *)
-  | typ_arrow of src_type * src_type
-  | typ_cstr of string * src_type list
+  | Styp_var of string (* type variable *)
+  | Styp_arrow of src_type * src_type
+  | Styp_ctr of string * src_type

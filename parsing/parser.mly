@@ -15,6 +15,8 @@
 %token EQUAL
 %token <string> ID
 %token LARROW
+%token LBRACE LBRACKET LPAREN
+%token RBRACE RBRACKET RPAREN
 
 %left LARROW
 
@@ -28,8 +30,8 @@ program:
 
 term:
   | DATA ID opt_type_parameters EQUAL opt_constructor_decls DOT
-      { Datatype.mk $2 ~params:$3 ~cstrs:$4 }
-  | ID COLON type_expression { ValueDecl.mk $1 $3 }
+      { Datatype.mk $2 ~params:$3 ~ctrs:$5 () |> Term.datatype }
+  | ID COLON type_expression { ValueDecl.mk $1 $3 |> Term.value_decl }
   ;
 
 opt_type_parameters:
@@ -37,7 +39,7 @@ opt_type_parameters:
   ;
 
 type_variable:
-  | ID       { mktyp(typ_var $1) }
+  | ID       { Type.var $1 }
   ;
 
 opt_constructor_decls:
@@ -51,7 +53,7 @@ constructor_decls:
   ;
 
 constructor_decl:
-  | ID COLON type_expression          { mktyp(typ_cstr $1 $3) }
+  | ID COLON type_expression          { Type.constr $1 $3 }
   ;
 
 bar_constructor_decl:
@@ -59,6 +61,6 @@ bar_constructor_decl:
   ;
 
 type_expression:
-  | type_variable                          { mktyp(typ_var $1) }
-  | type_expression LARROW type_expression { mktyp(typ_arrow $1 $3) }
+  | type_variable                          { $1 }
+  | type_expression LARROW type_expression { Type.arrow $1 $3 }
   ;

@@ -14,7 +14,7 @@
   let next_line lexbuf =
     let pos = lexbuf.lex_curr_p in
     lexbuf.lex_curr_p <-
-      { pos with pos_bol = lexbuf.lex_curr_pos
+      { pos with pos_bol = lexbuf.lex_curr_pos;
 	         pos_lnum = pos.pos_lnum + 1
       }
 }
@@ -29,11 +29,7 @@ let id = alpha alphanumeric*
 rule token = parse
   | white     { token lexbuf }
   | newline   { next_line lexbuf; token lexbuf }
-  | int       { INT (int_of_string (Lexing.lexeme lexbuf)) }
-  | "as"      { AS }
   | "data"    { DATA }
-  | "true"    { TRUE }
-  | "false"   { FALSE }
   | '{'       { LBRACE }
   | '['       { LBRACKET }
   | '('       { LPAREN }
@@ -43,7 +39,9 @@ rule token = parse
   | ':'       { COLON }
   | '='       { EQUAL }
   | '|'       { BAR }
-  | '->'      { LARROW }
+  | "->"      { LARROW }
   | '.'       { DOT }
-  | id        { ID }
+  | id        { ID (Lexing.lexeme lexbuf) }
+  | _         { raise (SyntaxError ("Unexpected character: " ^
+				       Lexing.lexeme lexbuf)) }
   | eof       { EOF}

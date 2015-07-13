@@ -1,0 +1,5 @@
+
+
+data List X = nil : List | cons : X -> List -> List.
+
+fmap : a -> b -> List -> List
