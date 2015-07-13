@@ -29,12 +29,33 @@ and inferable_value =
   | IValue_monovar of string
   | IValue_polyvar of string
   | IValue_effsig of string
-  | IValue_icomp
+  | IValue_icomp of inferable_computation
+
+and inferable_computation =
+  | IComp_bang of inferable_value
+  | IComp_call of checkable_computation * checkable_computation
+
+and pattern =
+  {
+    spat_desc : pattern_desc;
+  }
+
+and pattern_desc =
+  | Spat_value of value_pattern
+  | Spat_comp of computation_pattern
+
+and computation_pattern =
+  | Scpat_request of string * value_pattern list * string
+  | Scpat_thunk of string
+
+and value_pattern =
+  | Svpat_var of string
+  | Svpat_ctr of string * value_pattern list
 
 and value_definition =
   {
     vdef_name : string;
-    vdef_args : string list;
+    vdef_args : pattern list;
     vdef_comp : checkable_computation;
   }
 

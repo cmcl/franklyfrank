@@ -26,6 +26,17 @@ module Datatype = struct
     }
 end
 
+module Expressions = struct
+  let var name = CComp_cvalue (CValue_ivalue (IValue_monovar name))
+
+  let suspended_comp comp = CComp_cvalue (CValue_thunk comp)
+
+  let call func arg = 
+    CComp_cvalue (CValue_ivalue
+		    (IValue_icomp (IComp_call (func, arg))))
+
+end
+
 module EffInterface = struct
   let mk name ?(params = []) ?(sigs = []) () =
     {
@@ -49,10 +60,25 @@ module Type = struct
 end
 
 module ValueDefn = struct
-  let mk name ?(args = []) ccomp =
+  let mk name ?(pats = []) ccomp =
     {
       vdef_name = name;
-      vdef_args = args;
+      vdef_args = pats;
       vdef_comp = ccomp
     }
+end
+
+module Pattern = struct
+  let mk d = { spat_desc = d }
+
+  let vpat vp = mk (Spat_value vp)
+  let cpat cp = mk (Spat_comp cp)
+
+  let var name = Svpat_var name
+
+  let ctr name ?(pats = []) () = Svpat_ctr (name, pats)
+
+  let request name ?(pats = []) cont = Scpat_request (name, pats, cont)
+
+  let thunk thk = Scpat_thunk thk
 end

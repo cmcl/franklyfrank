@@ -19,6 +19,15 @@ module Term :
     val value_defn : value_definition -> term
   end
 
+(** Expressions *)
+module Expressions :
+  sig
+    val var : string -> checkable_computation
+    val suspended_comp : checkable_computation -> checkable_computation
+    val call : checkable_computation -> checkable_computation ->
+      checkable_computation
+  end
+
 (** Datatype declarations *)
 module Datatype :
   sig
@@ -53,6 +62,21 @@ module Type :
 (** Value definitions *)
 module ValueDefn :
   sig
-    val mk : string -> ?args:string list -> checkable_computation ->
+    val mk : string -> ?pats:pattern list -> checkable_computation ->
       value_definition
+  end
+
+(** Patterns *)
+module Pattern :
+  sig
+    val mk : pattern_desc -> pattern
+
+    val vpat : value_pattern -> pattern
+    val cpat : computation_pattern -> pattern
+
+    val var : string -> value_pattern
+    val ctr : string -> ?pats:value_pattern list -> unit -> value_pattern
+    val request : string -> ?pats:value_pattern list -> string ->
+      computation_pattern
+    val thunk : string -> computation_pattern
   end

@@ -21,8 +21,7 @@ let print_term trm =
   | Sterm_datatype dt -> printf "Datatype\t%s\n" dt.sdt_name
   | Sterm_effin ei -> printf "Effect Interface\t%s\n" ei.sei_name
   | Sterm_vdecl vd -> printf "Value Declaration\t%s\n" vd.svdecl_name
-  | _ -> printf "Recognised but not handled by parser\n"
-
+  | Sterm_vdefn vdef -> printf "Value Definition\t%s\n" vdef.vdef_name
 
 let rec parse_and_print lexbuf =
   match parse_with_error lexbuf with

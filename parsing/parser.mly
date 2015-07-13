@@ -7,6 +7,7 @@
 
 %}
 
+%token BANG
 %token BAR
 %token COLON
 %token DATA
@@ -35,7 +36,30 @@ term:
   | ID COLON type_expression { ValueDecl.mk $1 $3 |> Term.value_decl }
   | INTERFACE ID opt_type_parameters EQUAL effect_signatures DOT
       { EffInterface.mk $2 ~params:$3 ~sigs:$5 () |> Term.effect_in }
+  | ID pattern* EQUAL expression
+      { ValueDefn.mk $1 ~pats:$2 $4 |> Term.value_defn }
   ;
+
+expression:
+  | ID                            { Expressions.var $1  }
+  | LBRACE expression RBRACE      { Expressions.suspended_comp $2 }
+  | expression expression         { Expressions.call $1 $2  }
+  ;
+
+pattern:
+  | LPAREN pattern RPAREN         { $2 }
+  | value_pattern                 { Pattern.vpat $1 }
+  | comp_pattern                  { Pattern.cpat $1 }
+  ;
+
+value_pattern:
+  | ID                            { Pattern.var $1 }
+  | ID value_pattern+             { Pattern.ctr $1 ~pats:$2 () }
+  ;
+
+comp_pattern:
+  | ID value_pattern* LARROW ID    { Pattern.request $1 ~pats:$2 $4 }
+  | ID BANG                        { Pattern.thunk $1 }
 
 opt_type_parameters:
   | ps = list(type_variable)      { ps }
