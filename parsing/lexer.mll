@@ -29,8 +29,9 @@ let id = alpha alphanumeric*
 rule token = parse
   | white     { token lexbuf }
   | newline   { next_line lexbuf; token lexbuf }
-  | "data"    { DATA }
-  | '{'       { LBRACE }
+  | "data"      { DATA }
+  | "interface" { INTERFACE }
+  | '{'         { LBRACE }
   | '['       { LBRACKET }
   | '('       { LPAREN }
   | '}'       { RBRACE }

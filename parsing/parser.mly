@@ -14,6 +14,7 @@
 %token EOF
 %token EQUAL
 %token <string> ID
+%token INTERFACE
 %token LARROW
 %token LBRACE LBRACKET LPAREN
 %token RBRACE RBRACKET RPAREN
@@ -32,6 +33,8 @@ term:
   | DATA ID opt_type_parameters EQUAL opt_constructor_decls DOT
       { Datatype.mk $2 ~params:$3 ~ctrs:$5 () |> Term.datatype }
   | ID COLON type_expression { ValueDecl.mk $1 $3 |> Term.value_decl }
+  | INTERFACE ID opt_type_parameters EQUAL effect_signatures DOT
+      { EffInterface.mk $2 ~params:$3 ~sigs:$5 () |> Term.effect_in }
   ;
 
 opt_type_parameters:
@@ -40,6 +43,20 @@ opt_type_parameters:
 
 type_variable:
   | ID       { Type.var $1 }
+  ;
+
+effect_signatures:
+  | effect_signature                       { [$1] }
+  | bar_effect_signature                   { [$1] }
+  | effect_signatures bar_effect_signature { $2 :: $1 }
+  ;
+
+effect_signature:
+  | ID COLON type_expression               { Type.effect_sig $1 $3 }
+  ;
+
+bar_effect_signature:
+  | BAR effect_signature                   { $2 }
   ;
 
 opt_constructor_decls:

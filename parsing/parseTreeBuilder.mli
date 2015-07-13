@@ -14,6 +14,7 @@ open ParseTree
 module Term :
   sig
     val datatype : datatype_declaration -> term
+    val effect_in : effect_interface -> term
     val value_decl : value_declaration -> term
     val value_defn : value_definition -> term
   end
@@ -23,6 +24,13 @@ module Datatype :
   sig
     val mk : string -> ?params:src_type list -> ?ctrs:src_type list -> unit ->
       datatype_declaration
+  end
+
+(** Effect interface *)
+module EffInterface :
+  sig
+    val mk : string -> ?params:src_type list -> ?sigs:src_type list -> unit ->
+      effect_interface
   end
 
 (** Value declarations *)
@@ -39,7 +47,7 @@ module Type :
     val var : string -> src_type
     val arrow : src_type -> src_type -> src_type
     val constr : string -> src_type -> src_type
-
+    val effect_sig : string -> src_type -> src_type
   end
 
 (** Value definitions *)

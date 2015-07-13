@@ -48,8 +48,8 @@ and datatype_declaration =
 and effect_interface = 
   {
     sei_name : string;
-    sei_parameters: string list;
-    sei_signatures : string;
+    sei_parameters: src_type list;
+    sei_signatures : src_type list
   }
 
 and value_declaration =
@@ -67,3 +67,4 @@ and src_type_desc =
   | Styp_var of string (* type variable *)
   | Styp_arrow of src_type * src_type
   | Styp_ctr of string * src_type
+  | Styp_effin of string * src_type
