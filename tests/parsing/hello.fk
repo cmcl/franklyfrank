@@ -6,4 +6,4 @@ data List X = nil : List | cons : X -> List -> List.
 interface State X = get : X | put : S -> Unit.
 
 fmap : a -> b -> List -> List
-fmap f (cons x xs) = f x
+fmap f = f

@@ -26,14 +26,13 @@ and checkable_value =
   | CValue_thunk of checkable_computation
 
 and inferable_value =
-  | IValue_monovar of string
-  | IValue_polyvar of string
-  | IValue_effsig of string
+  | IValue_ident of string
+      (** Could be a monovar, polyvar or effect signature. *)
   | IValue_icomp of inferable_computation
 
 and inferable_computation =
-  | IComp_bang of inferable_value
-  | IComp_call of checkable_computation * checkable_computation
+  | IComp_force of inferable_value
+  | IComp_app of inferable_computation * checkable_computation
 
 and pattern =
   {

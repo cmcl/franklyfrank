@@ -19,13 +19,33 @@ module Term :
     val value_defn : value_definition -> term
   end
 
-(** Expressions *)
-module Expressions :
+(** Checkable computations *)
+module CComputation :
   sig
-    val var : string -> checkable_computation
-    val suspended_comp : checkable_computation -> checkable_computation
-    val call : checkable_computation -> checkable_computation ->
-      checkable_computation
+    val cvalue : checkable_value -> checkable_computation
+  end
+
+(** Checkable values *)
+module CValue :
+  sig
+    val ivalue : inferable_value -> checkable_value
+    val sus_comp : checkable_computation -> checkable_value
+    val ctr : string -> checkable_value list -> checkable_value
+  end
+
+(** Inferable values *)
+module IValue :
+  sig
+    val ident : string -> inferable_value
+    val icomp : inferable_computation -> inferable_value
+  end
+
+(** Inferable computation *)
+module IComp :
+  sig
+    val forced_thunk : inferable_value -> inferable_computation
+    val app : inferable_computation -> checkable_computation ->
+      inferable_computation
   end
 
 (** Datatype declarations *)

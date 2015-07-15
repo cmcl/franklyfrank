@@ -26,15 +26,28 @@ module Datatype = struct
     }
 end
 
-module Expressions = struct
-  let var name = CComp_cvalue (CValue_ivalue (IValue_monovar name))
+module CComputation = struct
+  let cvalue cval = CComp_cvalue cval
+end
 
-  let suspended_comp comp = CComp_cvalue (CValue_thunk comp)
+module CValue = struct
+  let ivalue ival = CValue_ivalue ival
 
-  let call func arg = 
-    CComp_cvalue (CValue_ivalue
-		    (IValue_icomp (IComp_call (func, arg))))
+  let sus_comp scomp = CValue_thunk scomp
 
+  let ctr name args = CValue_ctr (name, args)
+end
+
+module IValue = struct
+  let ident name = IValue_ident name
+
+  let icomp ic = IValue_icomp ic
+end
+
+module IComp = struct
+  let forced_thunk thk = IComp_force thk
+
+  let app func arg = IComp_app (func, arg)
 end
 
 module EffInterface = struct
