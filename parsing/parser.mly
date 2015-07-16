@@ -19,7 +19,7 @@
 %token LARROW
 %token LBRACE LBRACKET LPAREN
 %token RBRACE RBRACKET RPAREN
-%token NEWLINE
+%token SEMI
 
 %left LARROW
 
@@ -37,7 +37,7 @@ term:
   | ID COLON type_expression { ValueDecl.mk $1 $3 |> Term.value_decl }
   | INTERFACE ID opt_type_parameters EQUAL effect_signatures DOT
       { EffInterface.mk $2 ~params:$3 ~sigs:$5 () |> Term.effect_in }
-  | ID pattern* EQUAL checkable_computation NEWLINE
+  | ID pattern* EQUAL checkable_computation SEMI
       { ValueDefn.mk $1 ~pats:$2 $4 |> Term.value_defn }
   ;
 

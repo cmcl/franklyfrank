@@ -39,6 +39,7 @@ rule token = parse
   | ']'       { RBRACKET }
   | ')'       { RPAREN }
   | ':'       { COLON }
+  | ';'       { SEMI }
   | '='       { EQUAL }
   | '|'       { BAR }
   | "->"      { LARROW }
