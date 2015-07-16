@@ -16,9 +16,9 @@ and term =
 
 and checkable_computation =
   | CComp_cvalue of checkable_value
-  | CComp_hdr_clause
+  | CComp_hdr_clause of pattern list * checkable_computation
   | CComp_emp_clause
-  | CComp_compose
+  | CComp_compose of checkable_computation * checkable_computation
 
 and checkable_value =
   | CValue_ivalue of inferable_value
@@ -86,5 +86,10 @@ and src_type =
 and src_type_desc =
   | Styp_var of string (* type variable *)
   | Styp_arrow of src_type * src_type
-  | Styp_ctr of string * src_type
-  | Styp_effin of string * src_type
+  | Styp_constr of string * src_type
+  | Styp_comp of src_type * src_type
+  | Styp_ctr of string * src_type list
+  | Styp_effsig of string * src_type
+  | Styp_effin of string * src_type list
+  | Styp_ret of src_type list * src_type
+  | Styp_thunk of src_type

@@ -10,6 +10,7 @@
 %token BANG
 %token BAR
 %token COLON
+%token COMMA
 %token DATA
 %token DOT
 %token EOF
@@ -22,6 +23,7 @@
 %token SEMI
 
 %left LARROW
+%right BAR
 
 %start <ParseTree.prog> program
 
@@ -34,7 +36,7 @@ program:
 term:
   | DATA ID opt_type_parameters EQUAL opt_constructor_decls DOT
       { Datatype.mk $2 ~params:$3 ~ctrs:$5 () |> Term.datatype }
-  | ID COLON type_expression { ValueDecl.mk $1 $3 |> Term.value_decl }
+  | ID COLON value_type { ValueDecl.mk $1 $3 |> Term.value_decl }
   | INTERFACE ID opt_type_parameters EQUAL effect_signatures DOT
       { EffInterface.mk $2 ~params:$3 ~sigs:$5 () |> Term.effect_in }
   | ID pattern* EQUAL checkable_computation SEMI
@@ -43,6 +45,14 @@ term:
 
 checkable_computation:
   | checkable_value                     { CComputation.cvalue $1 }
+  | pat_match_computation               { $1 }
+  | checkable_computation BAR checkable_computation
+      { CComputation.compose $1 $3 }
+  ;
+
+pat_match_computation:
+  | separated_nonempty_list(COMMA, pattern) LARROW
+      checkable_computation { CComputation.clause $1 $3 }
   ;
 
 paren_checkable_computation:
@@ -73,7 +83,8 @@ paren_inferable_value:
 
 inferable_computation:
   | inferable_value BANG        { IComp.forced_thunk $1 }
-  | inferable_computation paren_checkable_computation { IComp.app $1 $2 }
+  | inferable_computation paren_checkable_computation
+      { IComp.app $1 $2 }
   ;
 
 value_constructor:
@@ -100,7 +111,7 @@ comp_pattern:
   | ID BANG                        { Pattern.thunk $1 }
 
 opt_type_parameters:
-  | ps = list(type_variable)      { ps }
+  | ps = list(value_type)      { ps }
   ;
 
 type_variable:
@@ -114,7 +125,7 @@ effect_signatures:
   ;
 
 effect_signature:
-  | ID COLON type_expression               { Type.effect_sig $1 $3 }
+  | ID COLON value_type               { Type.effect_sig $1 $3 }
   ;
 
 bar_effect_signature:
@@ -132,15 +143,36 @@ constructor_decls:
   ;
 
 constructor_decl:
-  | ID COLON type_expression          { Type.constr $1 $3 }
+  | ID COLON value_type         { Type.constr $1 $3 }
   ;
 
 bar_constructor_decl:
   | BAR constructor_decl                   { $2 }
   ;
 
-type_expression:
+value_type:
   | type_variable                          { $1 }
-  | LPAREN type_expression RPAREN          { $2 }
-  | type_expression LARROW type_expression { Type.arrow $1 $3 }
+  | datatype                               { $1 }
+  | LBRACE computation_types RBRACE        { Type.sus_comp $2 }
+  ;
+
+datatype:
+  | LPAREN ID value_type+ RPAREN           { Type.ctr $2 $3 }
+
+computation_types:
+  | returner                               { $1 }
+  | computation_types LARROW returner      { Type.comp $1 $3 }
+  ;
+
+returner:
+  | LBRACKET effects RBRACKET value_type
+      { Type.returner $4 ~effs:$2 () }
+  ;
+
+effects:
+  | es = separated_list(COMMA, effect_interface)  { es }
+  ;
+
+effect_interface:
+  | ID opt_type_parameters      { Type.effin $1 ~params:$2 () }
   ;

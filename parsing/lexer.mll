@@ -44,6 +44,7 @@ rule token = parse
   | '|'       { BAR }
   | "->"      { LARROW }
   | '.'       { DOT }
+  | ','       { COMMA }
   | id        { ID (Lexing.lexeme lexbuf) }
   | _         { raise (SyntaxError ("Unexpected character: " ^
 				       Lexing.lexeme lexbuf)) }

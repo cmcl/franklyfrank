@@ -23,6 +23,10 @@ module Term :
 module CComputation :
   sig
     val cvalue : checkable_value -> checkable_computation
+    val clause : pattern list -> checkable_computation ->
+      checkable_computation
+    val compose : checkable_computation -> checkable_computation ->
+      checkable_computation
   end
 
 (** Checkable values *)
@@ -51,15 +55,15 @@ module IComp :
 (** Datatype declarations *)
 module Datatype :
   sig
-    val mk : string -> ?params:src_type list -> ?ctrs:src_type list -> unit ->
-      datatype_declaration
+    val mk : string -> ?params:src_type list -> ?ctrs:src_type list ->
+      unit -> datatype_declaration
   end
 
 (** Effect interface *)
 module EffInterface :
   sig
-    val mk : string -> ?params:src_type list -> ?sigs:src_type list -> unit ->
-      effect_interface
+    val mk : string -> ?params:src_type list -> ?sigs:src_type list ->
+      unit -> effect_interface
   end
 
 (** Value declarations *)
@@ -73,10 +77,16 @@ module Type :
   sig
     val mk : src_type_desc -> src_type
 
-    val var : string -> src_type
-    val arrow : src_type -> src_type -> src_type
+    (** TODO: REMOVE THIS *)
     val constr : string -> src_type -> src_type
+
+    val var : string -> src_type
+    val ctr : string -> src_type list -> src_type
     val effect_sig : string -> src_type -> src_type
+    val effin : string -> ?params:src_type list -> unit -> src_type
+    val sus_comp : src_type -> src_type
+    val comp : src_type -> src_type -> src_type
+    val returner : src_type -> ?effs:src_type list -> unit -> src_type
   end
 
 (** Value definitions *)
@@ -95,7 +105,8 @@ module Pattern :
     val cpat : computation_pattern -> pattern
 
     val var : string -> value_pattern
-    val ctr : string -> ?pats:value_pattern list -> unit -> value_pattern
+    val ctr : string -> ?pats:value_pattern list -> unit ->
+      value_pattern
     val request : string -> ?pats:value_pattern list -> string ->
       computation_pattern
     val thunk : string -> computation_pattern

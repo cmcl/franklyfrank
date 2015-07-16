@@ -28,6 +28,10 @@ end
 
 module CComputation = struct
   let cvalue cval = CComp_cvalue cval
+
+  let clause pats comp = CComp_hdr_clause (pats, comp)
+
+  let compose comp1 comp2 = CComp_compose (comp1, comp2)
 end
 
 module CValue = struct
@@ -67,9 +71,13 @@ module Type = struct
   let mk d = { styp_desc = d }
 
   let var name = mk (Styp_var name)
-  let arrow a b = mk (Styp_arrow (a, b))
-  let constr name typ_exp = mk (Styp_ctr (name, typ_exp))
-  let effect_sig name typ_exp = mk (Styp_effin (name, typ_exp))
+  let constr name typ_exp = mk (Styp_constr (name, typ_exp))
+  let ctr name tes = mk (Styp_ctr (name, tes))
+  let effect_sig name typ_exp = mk (Styp_effsig (name, typ_exp))
+  let effin name ?(params = []) () = mk (Styp_effin (name, params))
+  let sus_comp typ_exp = mk (Styp_thunk typ_exp)
+  let comp dom cod = mk (Styp_comp (dom,cod))
+  let returner v ?(effs = []) () = mk (Styp_ret (effs,v))
 end
 
 module ValueDefn = struct
