@@ -36,7 +36,7 @@ program:
 term:
   | DATA ID opt_type_parameters EQUAL opt_constructor_decls DOT
       { Datatype.mk $2 ~params:$3 ~ctrs:$5 () |> Term.datatype }
-  | ID COLON value_type { ValueDecl.mk $1 $3 |> Term.value_decl }
+  | ID COLON top_level_value_type { ValueDecl.mk $1 $3 |> Term.value_decl }
   | INTERFACE ID opt_type_parameters EQUAL effect_signatures DOT
       { EffInterface.mk $2 ~params:$3 ~sigs:$5 () |> Term.effect_in }
   | ID pattern* EQUAL checkable_computation SEMI
@@ -148,6 +148,11 @@ constructor_decl:
 
 bar_constructor_decl:
   | BAR constructor_decl                   { $2 }
+  ;
+
+top_level_value_type:
+  | value_type                             { $1 }
+  | computation_types                      { Type.sus_comp $1 }
   ;
 
 value_type:
