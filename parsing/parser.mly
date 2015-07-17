@@ -68,7 +68,7 @@ checkable_value:
 paren_checkable_value:
   | paren_inferable_value        { CValue.ivalue $1 }
   | LPAREN value_constructor RPAREN   { $2 }
-  | suspended_computation             { CValue.sus_comp $1 }
+  | LPAREN suspended_computation RPAREN  { CValue.sus_comp $2 }
   ;
 
 inferable_value:

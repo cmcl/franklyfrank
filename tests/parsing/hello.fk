@@ -15,4 +15,4 @@ bind : X -> {X -> Y} -> Y
 bind x f = f! x;
 
 catter : [Receive (List X)](List X)
-catter = bind! (receive!);
+catter = bind! (receive!) ({ nil -> nil | xs -> append! xs (catter!) });
