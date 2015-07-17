@@ -66,7 +66,7 @@ and print_comp comp =
   | CComp_compose (c1, c2) -> print_comp c1; print_comp c2
 
 let print_def vd =
-  print_endline "\t";
+  print_string "\t";
   printf "%s" vd.vdef_name;
   ignore (List.map print_pattern vd.vdef_args);
   printf " =";

@@ -166,12 +166,22 @@ datatype:
 
 computation_types:
   | returner                               { $1 }
-  | computation_types LARROW returner      { Type.comp $1 $3 }
+  | peg LARROW port                        { Type.comp $1 $3 }
+  ;
+
+peg:
+  | value_type                             { Type.returner $1 () }
+  | returner                               { $1 }
+  | peg LARROW peg                         { Type.comp $1 $3 }
+  ;
+
+port:
+  | returner                               { $1 }
+  | value_type                             { $1 }
   ;
 
 returner:
-  | LBRACKET effects RBRACKET value_type
-      { Type.returner $4 ~effs:$2 () }
+  | LBRACKET effects RBRACKET value_type   { Type.returner $4 ~effs:$2 () }
   ;
 
 effects:
