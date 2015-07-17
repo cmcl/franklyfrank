@@ -3,6 +3,10 @@ data Nat = zero : Nat
 
 data List X = nil : List | cons : {[]X -> []List -> []List}.
 
+append : (List X) -> (List X) -> (List X)
+append nil         ys = ys;
+append (cons x xs) ys = cons x (append! xs ys);
+
 interface State X = get : X | put : {[]S -> []Unit}.
 
 interface Receive X = receive : X.

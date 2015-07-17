@@ -18,60 +18,64 @@ let parse_with_error lexbuf =
 
 let compose f g = fun x -> f (g x)
 
-let rec print_vpat p =
+let rec pats_of_string ?(sep = "") ps =
+  match ps with
+  | [] -> ""
+  | p :: _
+    -> if List.length ps > 1 then List.fold_right (pat_of_string sep) ps ""
+      else pat_of_string sep p ""
+
+and vpat_of_string p =
   let
-      ptf = compose print_pattern (fun x -> {spat_desc = Spat_value x})
+      to_pat = fun x -> {spat_desc = Spat_value x}
   in
   match p with
-  | Svpat_var v -> printf " %s" v
+  | Svpat_var v -> v
   | Svpat_ctr (c,ps)
-    -> printf " (%s" c; ignore (List.map ptf ps); printf ")"
+    -> "(" ^ c ^ " " ^ pats_of_string (List.map to_pat ps) ^ ")"
 
-and print_cpat p = printf " "
+and cpat_of_string p = " " (* TODO: Add support *)
 
-and print_pattern p =
-  match p.spat_desc with
-  | Spat_value vp -> print_vpat vp
-  | Spat_comp cp -> print_cpat cp
+and pat_of_string sep p acc = (* Implementation assumes used for fold_right *)
+  let pstr =
+    match p.spat_desc with
+    | Spat_value vp -> vpat_of_string vp
+    | Spat_comp cp -> cpat_of_string cp
+  in if acc = "" (* end of a sequence of patterns *) then pstr
+     else pstr ^ sep ^ " " ^ acc
 
-let rec print_cval cv =
-  match cv with
-  | CValue_ivalue iv -> print_ival iv
-  | CValue_ctr (c,vs)
-    -> printf " (%s" c; ignore (List.map print_cval vs); printf ")"
-  | CValue_thunk c -> printf " {"; print_comp c; printf " }"
+let rec cval_of_string cur cv =
+  let cvstr = match cv with
+              | CValue_ivalue iv -> ival_of_string iv
+	      | CValue_ctr (c,vs)
+		-> "(" ^ c ^ (List.fold_left cval_of_string "" vs) ^ ")"
+	      | CValue_thunk c -> "{" ^ ccomp_of_string c ^ "}"
+  in
+  cur ^ " " ^ cvstr
 
-and print_ival iv =
-  match iv with
-  | IValue_ident id -> printf "%s" id
-  | IValue_icomp ic -> print_icomp ic
-
-and print_icomp ic =
+and icomp_of_string ic =
   match ic with
-  | IComp_force iv -> print_ival iv; printf "!"
+  | IComp_force iv -> ival_of_string iv ^ "!"
   | IComp_app (ic, cc)
-    -> printf "("; print_icomp ic; printf " "; print_comp cc;
-       printf ")"
+    -> "(" ^ icomp_of_string ic ^ " " ^ ccomp_of_string cc ^ ")"
 
-and print_comp comp =
-  match comp with
-  | CComp_cvalue cv -> print_cval cv
+and ival_of_string iv =
+  match iv with
+  | IValue_ident id -> id
+  | IValue_icomp ic -> icomp_of_string ic
+
+and ccomp_of_string cc =
+  match cc with
+  | CComp_cvalue cv -> cval_of_string "" cv
   | CComp_hdr_clause (ps, cc)
-    -> ignore (List.map
-		 (fun p -> printf " "; print_pattern p; printf ",")
-		 ps);
-       printf " ->";
-       print_comp cc
-  | CComp_emp_clause -> printf " ()"
-  | CComp_compose (c1, c2) -> print_comp c1; print_comp c2
+    -> pats_of_string ~sep:"," ps ^ " -> " ^ ccomp_of_string cc
+  | CComp_emp_clause -> "()"
+  | CComp_compose (c1,c2) -> ccomp_of_string c1 ^ " | " ^ ccomp_of_string c2
 
 let print_def vd =
-  print_string "\t";
-  printf "%s" vd.vdef_name;
-  ignore (List.map print_pattern vd.vdef_args);
-  printf " =";
-  print_comp vd.vdef_comp;
-  printf "\n"
+  printf "\t%s %s = %s\n" vd.vdef_name
+    (pats_of_string vd.vdef_args)
+    (ccomp_of_string vd.vdef_comp)
 
 let print_term trm = 
   match trm with
