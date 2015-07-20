@@ -25,8 +25,7 @@ module CComputation :
     val cvalue : checkable_value -> checkable_computation
     val clause : pattern list -> checkable_computation ->
       checkable_computation
-    val compose : checkable_computation -> checkable_computation ->
-      checkable_computation
+    val compose : checkable_computation list -> checkable_computation
   end
 
 (** Checkable values *)
@@ -85,7 +84,7 @@ module TypExp :
     val effect_sig : string -> src_type -> src_type
     val effin : string -> ?params:src_type list -> unit -> src_type
     val sus_comp : src_type -> src_type
-    val comp : src_type -> src_type -> src_type
+    val comp : src_type list -> src_type -> src_type
     val returner : src_type -> ?effs:src_type list -> unit -> src_type
   end
 

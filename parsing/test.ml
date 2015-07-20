@@ -71,7 +71,7 @@ and ccomp_of_string cc =
   | CComp_hdr_clause (ps, cc)
     -> pats_of_string ~sep:"," ps ^ " -> " ^ ccomp_of_string cc
   | CComp_emp_clause -> "()"
-  | CComp_compose (c1,c2) -> ccomp_of_string c1 ^ " | " ^ ccomp_of_string c2
+  | CComp_compose cs -> String.concat " | " (List.map ccomp_of_string cs)
 
 let print_def vd =
   printf "\t%s %s = %s\n" vd.vdef_name

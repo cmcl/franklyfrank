@@ -38,7 +38,7 @@ module CComputation = struct
 
   let clause pats comp = CComp_hdr_clause (pats, comp)
 
-  let compose comp1 comp2 = CComp_compose (comp1, comp2)
+  let compose clauses = CComp_compose (clauses)
 end
 
 module CValue = struct
@@ -83,7 +83,7 @@ module TypExp = struct
   let effect_sig name typ_exp = mk (Styp_effsig (name, typ_exp))
   let effin name ?(params = []) () = mk (Styp_effin (name, params))
   let sus_comp typ_exp = mk (Styp_thunk typ_exp)
-  let comp dom cod = mk (Styp_comp (dom,cod))
+  let comp args res = mk (Styp_comp (args,res))
   let returner v ?(effs = []) () = mk (Styp_ret (effs,v))
 end
 

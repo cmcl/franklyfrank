@@ -21,8 +21,8 @@
 %token RBRACE RBRACKET RPAREN
 %token SEMI
 
+%left BAR
 %left LARROW
-%right BAR
 
 %start <ParseTree.prog> program
 
@@ -44,18 +44,29 @@ term:
 
 checkable_computation:
   | checkable_value                     { CComputation.cvalue $1 }
-  | pat_match_computation               { $1 }
-  | checkable_computation BAR checkable_computation
-      { CComputation.compose $1 $3 }
+  | clauses = separated_nonempty_list(BAR, pat_match_computation)
+      { CComputation.compose clauses }
+  ;
+
+pat_checkable_computation:
+  | checkable_value                { CComputation.cvalue $1 }
+  | LPAREN
+      clauses = separated_nonempty_list(BAR, pat_match_computation)
+    RPAREN
+      { CComputation.compose clauses }
   ;
 
 pat_match_computation:
   | separated_nonempty_list(COMMA, pattern) LARROW
-      checkable_computation { CComputation.clause $1 $3 }
+      pat_checkable_computation { CComputation.clause $1 $3 }
   ;
 
 paren_checkable_computation:
   | paren_checkable_value               { CComputation.cvalue $1 }
+  | LPAREN
+      clauses = separated_nonempty_list(BAR, pat_match_computation)
+    RPAREN
+      { CComputation.compose clauses }
   ;
 
 checkable_value:
@@ -124,7 +135,7 @@ effect_signatures:
   ;
 
 effect_signature:
-  | ID COLON value_type               { TypExp.effect_sig $1 $3 }
+  | ID COLON top_level_value_type               { TypExp.effect_sig $1 $3 }
   ;
 
 bar_effect_signature:
@@ -142,13 +153,17 @@ constructor_decls:
   ;
 
 constructor_decl:
-  | ID COLON args = separated_nonempty_list(LARROW, constructor_arg)
-      { let rargs = List.rev args in
-	match rargs with
+  | ID COLON rargs = constructor_args
+      { match rargs with
 	| []
-	  -> raise (SyntaxError ("Expecting type")) (* Will never happen! *)
-	| res :: args' -> Datatype.constr_decl $1 ~args:(List.rev args') res }
+	  -> raise (SyntaxError ("Expecting constructor type"))
+	     (* Will never happen! *)
+	| res :: sgra -> Datatype.constr_decl $1 ~args:(List.rev sgra) res }
   ;
+
+constructor_args:
+  | constructor_arg                         { [$1] }
+  | constructor_args LARROW constructor_arg { $3 :: $1 }
 
 constructor_arg:
   | type_variable                          { $1 }
@@ -175,18 +190,22 @@ datatype:
 
 computation_types:
   | returner                               { $1 }
-  | arg LARROW res                         { TypExp.comp $1 $3 }
+  | rargs = arrow_type
+        { match rargs with
+	  | [] -> raise (SyntaxError ("Expecting function type"))
+                  (* Impossible *)
+	  | res :: sgra -> TypExp.comp (List.rev sgra) res
+	}
+  ;
+
+arrow_type:
+  | arg LARROW arg                         { [$1 ; $3] }
+  | arrow_type LARROW arg                  { $3 :: $1  }
   ;
 
 arg:
   | value_type                             { TypExp.returner $1 () }
   | returner                               { $1 }
-  | arg LARROW arg                         { TypExp.comp $1 $3 }
-  ;
-
-res:
-  | returner                               { $1 }
-  | value_type                             { $1 }
   ;
 
 returner:
