@@ -93,8 +93,8 @@ paren_inferable_value:
 
 inferable_computation:
   | inferable_value BANG        { IComp.forced_thunk $1 }
-  | inferable_computation paren_checkable_computation
-      { IComp.app $1 $2 }
+  | inferable_value BANG nonempty_list(paren_checkable_computation)
+      { IComp.app $1 $3 }
   ;
 
 value_constructor:

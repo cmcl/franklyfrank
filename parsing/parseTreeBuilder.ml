@@ -58,7 +58,7 @@ end
 module IComp = struct
   let forced_thunk thk = IComp_force thk
 
-  let app func arg = IComp_app (func, arg)
+  let app func args = IComp_app (func, args)
 end
 
 module EffInterface = struct

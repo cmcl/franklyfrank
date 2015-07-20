@@ -47,7 +47,7 @@ module IValue :
 module IComp :
   sig
     val forced_thunk : inferable_value -> inferable_computation
-    val app : inferable_computation -> checkable_computation ->
+    val app : inferable_value -> checkable_computation list ->
       inferable_computation
   end
 

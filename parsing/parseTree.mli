@@ -32,7 +32,7 @@ and inferable_value =
 
 and inferable_computation =
   | IComp_force of inferable_value
-  | IComp_app of inferable_computation * checkable_computation
+  | IComp_app of inferable_value * checkable_computation list
 
 and pattern =
   {

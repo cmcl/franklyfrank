@@ -57,8 +57,10 @@ let rec cval_of_string cur cv =
 and icomp_of_string ic =
   match ic with
   | IComp_force iv -> ival_of_string iv ^ "!"
-  | IComp_app (ic, cc)
-    -> "(" ^ icomp_of_string ic ^ " " ^ ccomp_of_string cc ^ ")"
+  | IComp_app (iv, cs)
+    -> "(" ^ ival_of_string iv ^ " " ^
+             (String.concat " " (List.map ccomp_of_string cs)) ^
+       ")"
 
 and ival_of_string iv =
   match iv with
