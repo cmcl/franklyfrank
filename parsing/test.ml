@@ -2,6 +2,7 @@ open Lexer
 open Lexing
 open Printf
 open ParseTree
+open ErrorHandling
 
 let print_position outx lexbuf =
   let pos = lexbuf.lex_curr_p in

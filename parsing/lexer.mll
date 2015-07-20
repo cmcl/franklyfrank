@@ -8,8 +8,7 @@
 {
   open Lexing
   open Parser
-
-  exception SyntaxError of string
+  open ErrorHandling
 
   let next_line lexbuf =
     let pos = lexbuf.lex_curr_p in
@@ -24,7 +23,7 @@ let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 let alpha =  ['a'-'z' 'A'-'Z' '_']
 let alphanumeric = alpha | ['0'-'9']
-let id = alpha alphanumeric*
+let id = alpha (alphanumeric | ['\''])*
 
 rule token = parse
   | white     { token lexbuf }

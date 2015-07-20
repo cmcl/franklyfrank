@@ -55,8 +55,11 @@ module IComp :
 (** Datatype declarations *)
 module Datatype :
   sig
-    val mk : string -> ?params:src_type list -> ?ctrs:src_type list ->
-      unit -> datatype_declaration
+    val mk : string -> ?params:src_type list ->
+      ?ctrs:constructor_declaration list -> unit -> datatype_declaration
+
+    val constr_decl : string -> ?args:src_type list -> src_type ->
+      constructor_declaration
   end
 
 (** Effect interface *)
@@ -73,12 +76,9 @@ module ValueDecl :
   end
 
 (** Type expressions *)
-module Type :
+module TypExp :
   sig
     val mk : src_type_desc -> src_type
-
-    (** TODO: REMOVE THIS *)
-    val constr : string -> src_type -> src_type
 
     val var : string -> src_type
     val ctr : string -> src_type list -> src_type

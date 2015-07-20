@@ -24,6 +24,13 @@ module Datatype = struct
       sdt_parameters = params;
       sdt_constructors = ctrs
     }
+
+  let constr_decl name ?(args = []) res =
+    {
+      sctr_name = name;
+      sctr_args = args;
+      sctr_res = res
+    }
 end
 
 module CComputation = struct
@@ -67,7 +74,7 @@ module ValueDecl = struct
   let mk name stype = { svdecl_name = name; svdecl_type = stype }
 end
 
-module Type = struct
+module TypExp = struct
   let mk d = { styp_desc = d }
 
   let var name = mk (Styp_var name)

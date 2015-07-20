@@ -2,8 +2,7 @@
 
   open ParseTree
   open ParseTreeBuilder
-
-  let mktyp k = Type.mk k
+  open ErrorHandling
 
 %}
 
@@ -115,7 +114,7 @@ opt_type_parameters:
   ;
 
 type_variable:
-  | ID       { Type.var $1 }
+  | ID       { TypExp.var $1 }
   ;
 
 effect_signatures:
@@ -125,7 +124,7 @@ effect_signatures:
   ;
 
 effect_signature:
-  | ID COLON value_type               { Type.effect_sig $1 $3 }
+  | ID COLON value_type               { TypExp.effect_sig $1 $3 }
   ;
 
 bar_effect_signature:
@@ -143,7 +142,17 @@ constructor_decls:
   ;
 
 constructor_decl:
-  | ID COLON value_type         { Type.constr $1 $3 }
+  | ID COLON args = separated_nonempty_list(LARROW, constructor_arg)
+      { let rargs = List.rev args in
+	match rargs with
+	| []
+	  -> raise (SyntaxError ("Expecting type")) (* Will never happen! *)
+	| res :: args' -> Datatype.constr_decl $1 ~args:(List.rev args') res }
+  ;
+
+constructor_arg:
+  | type_variable                          { $1 }
+  | datatype                               { $1 }
   ;
 
 bar_constructor_decl:
@@ -152,36 +161,36 @@ bar_constructor_decl:
 
 top_level_value_type:
   | value_type                             { $1 }
-  | computation_types                      { Type.sus_comp $1 }
+  | computation_types                      { TypExp.sus_comp $1 }
   ;
 
 value_type:
   | type_variable                          { $1 }
   | datatype                               { $1 }
-  | LBRACE computation_types RBRACE        { Type.sus_comp $2 }
+  | LBRACE computation_types RBRACE        { TypExp.sus_comp $2 }
   ;
 
 datatype:
-  | LPAREN ID value_type+ RPAREN           { Type.ctr $2 $3 }
+  | LPAREN ID value_type+ RPAREN           { TypExp.ctr $2 $3 }
 
 computation_types:
   | returner                               { $1 }
-  | peg LARROW port                        { Type.comp $1 $3 }
+  | arg LARROW res                         { TypExp.comp $1 $3 }
   ;
 
-peg:
-  | value_type                             { Type.returner $1 () }
+arg:
+  | value_type                             { TypExp.returner $1 () }
   | returner                               { $1 }
-  | peg LARROW peg                         { Type.comp $1 $3 }
+  | arg LARROW arg                         { TypExp.comp $1 $3 }
   ;
 
-port:
+res:
   | returner                               { $1 }
   | value_type                             { $1 }
   ;
 
 returner:
-  | LBRACKET effects RBRACKET value_type   { Type.returner $4 ~effs:$2 () }
+  | LBRACKET effects RBRACKET value_type   { TypExp.returner $4 ~effs:$2 () }
   ;
 
 effects:
@@ -189,5 +198,5 @@ effects:
   ;
 
 effect_interface:
-  | ID opt_type_parameters      { Type.effin $1 ~params:$2 () }
+  | ID opt_type_parameters      { TypExp.effin $1 ~params:$2 () }
   ;

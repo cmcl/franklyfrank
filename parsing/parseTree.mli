@@ -62,7 +62,14 @@ and datatype_declaration =
   {
     sdt_name : string;
     sdt_parameters : src_type list;
-    sdt_constructors : src_type list;
+    sdt_constructors : constructor_declaration list;
+  }
+
+and constructor_declaration =
+  {
+    sctr_name : string;
+    sctr_args : src_type list;
+    sctr_res : src_type
   }
 
 and effect_interface = 

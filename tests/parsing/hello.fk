@@ -1,13 +1,14 @@
 data Nat = zero : Nat
-         | suc : {[]Nat -> []Nat}.
+         | suc : Nat -> Nat.
 
-data List X = nil : List | cons : {[]X -> []List -> []List}.
+data List X = nil  : (List X)
+            | cons : X -> (List X) -> (List X).
 
 append : (List X) -> (List X) -> (List X)
 append nil         ys = ys;
 append (cons x xs) ys = cons x (append! xs ys);
 
-interface State X = get : X | put : {[]S -> []Unit}.
+interface State X = get : X | put : {S -> Unit}.
 
 interface Receive X = receive : X.
 
@@ -20,3 +21,8 @@ bind x f = f! x;
 
 catter : [Receive (List X)](List X)
 catter = bind! (receive!) ({ nil -> nil | xs -> append! xs (catter!) });
+
+runState : X -> [State X]Y    -> Y
+runState   x    (put x' -> k) =  runState x' (k! unit);
+runState   x    (get    -> k) =  runState x  (k! x);
+runState   x          x       =  x;
