@@ -8,6 +8,10 @@ append : (List X) -> (List X) -> (List X)
 append nil         ys = ys;
 append (cons x xs) ys = cons x (append! xs ys);
 
+plus : Nat -> Nat -> Nat
+plus zero m = m;
+plus (suc n) m = suc (plus! n m);
+
 interface State X = get : X | put : S -> Unit.
 
 interface Receive X = receive : X.
