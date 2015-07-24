@@ -135,7 +135,23 @@ effect_signatures:
   ;
 
 effect_signature:
-  | ID COLON top_level_value_type               { TypExp.effect_sig $1 $3 }
+  | ID COLON rargs = sig_args
+      { match rargs with
+	| []
+	  -> raise (SyntaxError ("Expecting signature type"))
+	     (* Will never happen! *)
+	| res :: sgra -> EffInterface.sig_decl $1 ~args:(List.rev sgra) res }
+
+  ;
+
+sig_args:
+  | sig_arg                                { [$1] }
+  | sig_args LARROW sig_arg                { $3 :: $1 }
+  ;
+
+sig_arg:
+  | type_variable                          { $1 }
+  | datatype                               { $1 }
   ;
 
 bar_effect_signature:

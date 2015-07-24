@@ -64,8 +64,11 @@ module Datatype :
 (** Effect interface *)
 module EffInterface :
   sig
-    val mk : string -> ?params:src_type list -> ?sigs:src_type list ->
-      unit -> effect_interface
+    val mk : string -> ?params:src_type list ->
+      ?sigs:signature_declaration list -> unit -> effect_interface
+
+    val sig_decl : string -> ?args:src_type list -> src_type ->
+      signature_declaration
   end
 
 (** Value declarations *)
@@ -81,7 +84,6 @@ module TypExp :
 
     val var : string -> src_type
     val ctr : string -> src_type list -> src_type
-    val effect_sig : string -> src_type -> src_type
     val effin : string -> ?params:src_type list -> unit -> src_type
     val sus_comp : src_type -> src_type
     val comp : src_type list -> src_type -> src_type

@@ -76,7 +76,14 @@ and effect_interface =
   {
     sei_name : string;
     sei_parameters: src_type list;
-    sei_signatures : src_type list
+    sei_signatures : signature_declaration list
+  }
+
+and signature_declaration =
+  {
+    ssig_name : string;
+    ssig_args : src_type list;
+    ssig_res : src_type
   }
 
 and value_declaration =
@@ -96,7 +103,6 @@ and src_type_desc =
   | Styp_constr of string * src_type
   | Styp_comp of src_type list * src_type
   | Styp_ctr of string * src_type list
-  | Styp_effsig of string * src_type
   | Styp_effin of string * src_type list
   | Styp_ret of src_type list * src_type
   | Styp_thunk of src_type

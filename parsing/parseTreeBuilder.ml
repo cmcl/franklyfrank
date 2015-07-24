@@ -68,6 +68,13 @@ module EffInterface = struct
       sei_parameters = params;
       sei_signatures = sigs
     }
+
+  let sig_decl name ?(args = []) res =
+    {
+      ssig_name = name;
+      ssig_args = args;
+      ssig_res = res
+    }
   end
 
 module ValueDecl = struct
@@ -80,7 +87,6 @@ module TypExp = struct
   let var name = mk (Styp_var name)
   let constr name typ_exp = mk (Styp_constr (name, typ_exp))
   let ctr name tes = mk (Styp_ctr (name, tes))
-  let effect_sig name typ_exp = mk (Styp_effsig (name, typ_exp))
   let effin name ?(params = []) () = mk (Styp_effin (name, params))
   let sus_comp typ_exp = mk (Styp_thunk typ_exp)
   let comp args res = mk (Styp_comp (args,res))
