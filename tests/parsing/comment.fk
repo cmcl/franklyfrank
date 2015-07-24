@@ -1,3 +1,4 @@
+{- Testing out comments. -}
 data Nat = zero : Nat
          | suc : Nat -> Nat.
 
@@ -10,7 +11,16 @@ append (cons x xs) ys = cons x (append! xs ys);
 
 plus : Nat -> Nat -> Nat
 plus zero m = m;
-plus (suc n) m = suc (plus! n m);
+plus (suc n) m = suc (plus! n m);{-
+plus [?c -> k] [t] = let x = c! in plus (k! x) t!
+plus [t] [?c -> k] = let x = c! in plus t! (k! x)
+
+# plus (h (suc zero)) zero
+# -->
+# plus comp zero
+
+
+-}
 
 interface State X = get : X | put : S -> Unit.
 
@@ -23,10 +33,41 @@ fmap f (cons x xs) = cons (f! x) (fmap! f xs);
 bind : X -> {X -> Y} -> Y
 bind x f = f! x;
 
+{- {- {- p[ef[##'####'##esaojdknsafoewowowo {{{{{a-
+pi : {[]Int}
+pi = 3.142 ##~~~ ü
+-}
+g x y = x + y
+
+f x = { y -> plus x y }
+-}
+main = {f! 42}
+-}
+
 catter : [Receive (List X)](List X)
 catter = bind! (receive!) ({ nil -> nil | xs -> append! xs (catter!) });
 
+some = { x -> x };
+
 runState : X -> [State X]Y    -> Y
-runState   x    [put x' -> k] =  runState x' (k! unit);
+runState   x    (put x' -> k) =  runState x' (k! unit);
 runState   x    [get    -> k] =  runState x  (k! x);
 runState   x          x       =  x;
+{-
+
+cont
+hs
+
+runState 42 (h 3)
+=
+h 3 (cont = id :: cont, hs = (runState 42 _)::hs)
+
+
+runState 42 (h 3)
+-->
+runState 42 (h 3)
+
+main = runState
+
+
+-}

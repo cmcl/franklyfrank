@@ -106,9 +106,9 @@ suspended_computation:
   ;
 
 pattern:
-  | LPAREN pattern RPAREN         { $2 }
-  | value_pattern                 { Pattern.vpat $1 }
-  | LPAREN comp_pattern RPAREN    { Pattern.cpat $2 }
+  | LPAREN pattern RPAREN             { $2 }
+  | value_pattern                     { Pattern.vpat $1 }
+  | LBRACKET comp_pattern RBRACKET    { Pattern.cpat $2 }
   ;
 
 value_pattern:
