@@ -31,9 +31,8 @@ and mid_ccomputation =
   | Mccomp_clause of mid_comp_clause
 
 and mid_comp_clause =
-  | Mcomp_hdr_clause of handler_clause
+  | Mcomp_clauses of handler_clause list
   | Mcomp_emp_clause
-  | Mcomp_compose of mid_comp_clause list
 
 and mid_cvalue =
   | Mcvalue_ivalue of mid_ivalue
