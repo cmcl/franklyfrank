@@ -6,6 +6,8 @@
  ***********************************************************************
  *)
 
+open Show
+
 type prog = term list
 
 and term =
@@ -106,3 +108,15 @@ and src_type_desc =
   | Styp_effin of string * src_type list
   | Styp_ret of src_type list * src_type
   | Styp_thunk of src_type
+
+(** Show functions *)
+val string_of_args : string -> ?bbegin:bool -> ?endd:bool ->
+  ('a -> string) -> 'a list -> string
+
+module ShowPattern : SHOW with type t = pattern
+
+module ShowSrcType : SHOW with type t = src_type
+
+module ShowDatatype : SHOW with type t = datatype_declaration
+
+module ShowEffin : SHOW with type t = effect_interface

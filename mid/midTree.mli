@@ -49,7 +49,21 @@ and mid_icomputation =
   | Micomp_force of mid_ivalue
   | Micomp_app of mid_ivalue * mid_ccomputation list
 
-(** Show functions for the tree *)
-module MidProg : SHOW with type t = prog
+(** Show functions for the tree (see also ParseTree module) *)
+module ShowMidProg : SHOW with type t = prog
 
-module MidTLD : SHOW with type t = tld
+module ShowMidTLD : SHOW with type t = tld
+
+module ShowMidHandler : SHOW with type t = handler_definition
+
+module ShowHdrClause : SHOW with type t = handler_clause
+
+module ShowMidCComp : SHOW with type t = mid_ccomputation
+
+module ShowMidCClause : SHOW with type t = mid_comp_clause
+
+module ShowMidCValue : SHOW with type t = mid_cvalue
+
+module ShowMidIValue : SHOW with type t = mid_ivalue
+
+module ShowMidIComp : SHOW with type t = mid_icomputation

@@ -39,12 +39,70 @@ and mid_icomputation =
   | Micomp_force of mid_ivalue
   | Micomp_app of mid_ivalue * mid_ccomputation list
 
-module MidTLD : SHOW with type t = tld = struct
+module rec ShowMidProg : SHOW
+  with type t = prog = ShowList(ShowMidTLD)
+
+and ShowMidTLD : SHOW with type t = tld = struct
   type t = tld
-  let show d = "EMPTY"
+  let show d = match d with
+    | Mtld_datatype dt -> ShowDatatype.show dt
+    | Mtld_effin ei -> ShowEffin.show ei
+    | Mtld_handler hdr -> ShowMidHandler.show hdr
 end
 
-module MidProg : SHOW with type t = prog = ShowList(MidTLD)
+and ShowMidHandler : SHOW with type t = handler_definition = struct
+  type t = handler_definition
 
+  let show_cse name (ps, cc) =
+    name ^ (string_of_args " " ShowPattern.show ps) ^ " = " ^
+      ShowMidCComp.show cc
 
+  let show h =
+    "{- START OF HANDLER " ^ h.mhdr_name ^ " DEFINITION -}\n" ^
+    h.mhdr_name ^ " : " ^ (ShowSrcType.show h.mhdr_type) ^ "\n" ^
+    (String.concat "\n" (List.map (show_cse h.mhdr_name) h.mhdr_defs)) ^
+    "\n{- END OF HANDLER " ^ h.mhdr_name ^ " DEFINITION -}\n"
+end
 
+and ShowHdrClause : SHOW with type t = handler_clause = struct
+  type t = handler_clause
+  let show (ps, cc) =
+    String.concat " " (List.map ShowPattern.show ps) ^ " = " ^
+      ShowMidCComp.show cc
+end
+
+and ShowMidCComp : SHOW with type t = mid_ccomputation = struct
+  type t = mid_ccomputation
+  let show c = match c with
+    | Mccomp_cvalue cv -> ShowMidCValue.show cv
+    | Mccomp_clause cse -> ShowMidCClause.show cse
+end
+
+and ShowMidCClause : SHOW with type t = mid_comp_clause = struct
+  type t = mid_comp_clause
+  let show cse = match cse with
+    | Mcomp_clauses cses -> ShowClauses.show cses
+    | Mcomp_emp_clause -> "()"
+end
+
+and ShowMidCValue : SHOW with type t = mid_cvalue = struct
+  type t = mid_cvalue
+  let rec show cv = match cv with
+    | Mcvalue_ivalue iv -> ShowMidIValue.show iv
+    | Mcvalue_ctr (k, vs)
+      -> "(" ^ k ^ (string_of_args " " ShowMidCValue.show vs) ^ ")"
+    | Mcvalue_thunk cc -> "{" ^ ShowMidCComp.show cc ^ "}"
+end
+
+and ShowMidIValue : SHOW with type t = mid_ivalue = struct
+  type t = mid_ivalue
+  let show iv = "IVALUE"
+end
+
+and ShowMidIComp : SHOW with type t = mid_icomputation = struct
+  type t = mid_icomputation
+  let show ic = "ICOMP"
+end
+
+and ShowClauses : SHOW
+  with type t = handler_clause list = ShowList(ShowHdrClause)
