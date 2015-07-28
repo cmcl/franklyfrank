@@ -5,6 +5,7 @@ open Printf
 open ParseTree
 open MidTree
 open MidTranslate
+open MidEvaluator
 open ErrorHandling
 
 let print_position outx lexbuf =
@@ -41,6 +42,7 @@ let loop filename =
   } in
   let (mtree, hmap, cset, sset) = parse_file lexbuf in
   print_string (ShowMidProg.show mtree);
+  eval mtree;
   close_in inx
 
 let () = Arg.parse [] loop "Frank Parser:"
