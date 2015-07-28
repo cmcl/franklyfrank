@@ -96,12 +96,19 @@ end
 
 and ShowMidIValue : SHOW with type t = mid_ivalue = struct
   type t = mid_ivalue
-  let show iv = "IVALUE"
+  let show iv = match iv with
+    | Mivalue_var v -> "({-VAR-} " ^ v ^ ")"
+    | Mivalue_sig s -> "({-SIG-} " ^ s ^ ")"
+    | Mivalue_icomp ic -> ShowMidIComp.show ic
 end
 
 and ShowMidIComp : SHOW with type t = mid_icomputation = struct
   type t = mid_icomputation
-  let show ic = "ICOMP"
+  let show ic = match ic with
+    | Micomp_force iv -> (ShowMidIValue.show iv) ^ "!"
+    | Micomp_app (iv, xs)
+      -> "({-APP-}" ^ (ShowMidIValue.show iv) ^ "!" ^
+           (string_of_args " " ShowMidCComp.show xs) ^ ")"
 end
 
 and ShowClauses : SHOW
