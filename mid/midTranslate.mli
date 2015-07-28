@@ -11,6 +11,12 @@
 
 open MidTree
 
+type mid_error =
+  | Merr_inv_clause of string
+  | Merr_inv_ctr of string
+
+exception Error of mid_error
+
 module type HMS = sig
   type t
   val empty : t

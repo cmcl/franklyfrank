@@ -3,6 +3,7 @@ open Lexer
 open Lexing
 open Printf
 open ParseTree
+open MidTree
 open MidTranslate
 open ErrorHandling
 
@@ -19,10 +20,18 @@ let parse_with_error lexbuf =
     fprintf stderr "%a: syntax error\n" print_position lexbuf;
     exit (-1)
 
+let translate_with_error prog =
+  let ext = function  Merr_inv_clause msg -> msg
+                    | Merr_inv_ctr msg -> msg in
+  try translate prog with
+  | MidTranslate.Error err
+    -> fprintf stderr "Translation error: %s\n" (ext err);
+      ([], HandlerMap.empty, CtrSet.empty, SigSet.empty)
+
 let rec parse_file lexbuf =
   match parse_with_error lexbuf with
   | [] -> ([], HandlerMap.empty, CtrSet.empty, SigSet.empty)
-  | prog -> translate prog
+  | prog -> translate_with_error prog
 
 let loop filename =
   let inx = open_in filename in
@@ -31,6 +40,7 @@ let loop filename =
     lexbuf.lex_curr_p with pos_fname = filename
   } in
   let (mtree, hmap, cset, sset) = parse_file lexbuf in
+  print_string (MidProg.show mtree);
   close_in inx
 
 let () = Arg.parse [] loop "Frank Parser:"

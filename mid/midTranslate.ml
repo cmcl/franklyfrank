@@ -13,8 +13,9 @@ let invalid_clause_error def =
 	   (Merr_inv_clause
 	      ("Invalid pattern matching computation when parsing " ^ def)))
 
-let invalid_constructor def =
-  raise (Error (Merr_inv_ctr ("No such constructor when parsing " ^ def)))
+let invalid_constructor k def =
+  raise (Error (Merr_inv_ctr
+		  ("No such constructor " ^ k ^ " when parsing " ^ def)))
 
 module type HMS = sig
   type t
@@ -148,7 +149,7 @@ and translate_cvalue st cv =
     -> if CtrSet.mem k st.cset then
 	Mcvalue_ctr (k, List.map (translate_cvalue st) vs)
        else
-	invalid_constructor st.def_name
+	invalid_constructor k st.def_name
   | CValue_thunk cc
     -> st.def_name <- "thunk inside " ^ st.def_name;
        Mcvalue_thunk (translate_ccomp st cc)

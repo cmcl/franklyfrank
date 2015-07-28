@@ -27,6 +27,6 @@ catter : [Receive (List X)](List X)
 catter = bind! (receive!) ({ nil -> nil | xs -> append! xs (catter!) });
 
 runState : X -> [State X]Y    -> Y
-runState   x    [put x' -> k] =  runState x' (k! unit);
-runState   x    [get    -> k] =  runState x  (k! x);
+runState   x    [put x' -> k] =  runState! x' (k! unit);
+runState   x    [get    -> k] =  runState! x  (k! x);
 runState   x          x       =  x;

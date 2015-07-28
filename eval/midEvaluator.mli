@@ -6,6 +6,8 @@
  ***********************************************************************
  *)
 
+open Monad
+
 (* globals : handler_def NameMap
    constructors : NameSet
    commands : NameSet

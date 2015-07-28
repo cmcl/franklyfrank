@@ -1,13 +1,3 @@
-(***********************************************************************
- * Translate the untyped abstract syntax tree of the source language
- * into a untyped mid-level tree. The mid-level tree does not
- * distinguish between inferable and checkable values/computations.
- *
- *
- * Created by Craig McLaughlin on 21/07/2015.
- ***********************************************************************
- *)
-
 open ParseTree
 open Show
 
@@ -49,7 +39,12 @@ and mid_icomputation =
   | Micomp_force of mid_ivalue
   | Micomp_app of mid_ivalue * mid_ccomputation list
 
-(** Show functions for the tree *)
-module MidProg : SHOW with type t = prog
+module MidTLD : SHOW with type t = tld = struct
+  type t = tld
+  let show d = "EMPTY"
+end
 
-module MidTLD : SHOW with type t = tld
+module MidProg : SHOW with type t = prog = ShowList(MidTLD)
+
+
+
