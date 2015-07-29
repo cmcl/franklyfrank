@@ -5,6 +5,7 @@ open ParseTreeBuilder
 type mid_error =
   | Merr_inv_clause of string
   | Merr_inv_ctr of string
+  | Merr_no_main of string
 
 exception Error of mid_error
 
@@ -17,12 +18,17 @@ let invalid_constructor k def =
   raise (Error (Merr_inv_ctr
 		  ("No such constructor " ^ k ^ " when parsing " ^ def)))
 
+let no_main () = raise (Error (Merr_no_main "No main function defined."))
+
 module type HMS = sig
   type t
   val empty : t
   (** Return an empty mapping. *)
   val lookup : string -> t -> handler_definition
   (** Raises a [Not_found] exception if not found. *)
+  val mem : string -> t -> bool
+  (** Return true if the map contains the specified string false
+      otherwise. *)
 end
 
 module type NS = sig
@@ -39,6 +45,7 @@ module HandlerMap = struct
   type t = handler_definition M.t
   let empty = M.empty
   let lookup h m = M.find h m
+  let mem = M.mem
 end
 
 module CtrSet = struct
@@ -62,22 +69,16 @@ type prog_state =
     sset : SigSet.t
   }
 
-let ex_datatype = function Sterm_datatype dt -> Some dt | _ -> None
-let ex_effin = function Sterm_effin ei -> Some ei | _ -> None
-let ex_decl = function Sterm_vdecl vd -> Some vd | _ -> None
-let ex_def = function Sterm_vdefn vd -> Some vd | _ -> None
-let rec extract xs =
-  match xs with
-    [] -> []
-  | Some x :: xs -> x :: extract xs
-  | _ :: xs -> extract xs
+let just_datatype = function Sterm_datatype dt -> Some dt | _ -> None
+let just_effin = function Sterm_effin ei -> Some ei | _ -> None
+let just_decl = function Sterm_vdecl vd -> Some vd | _ -> None
+let just_def = function Sterm_vdefn vd -> Some vd | _ -> None
 
 let partition prog =
-  let ex f prog = List.map f prog |> extract in
-  let dts   = ex ex_datatype prog in
-  let eis   = ex ex_effin prog in
-  let decls = ex ex_decl prog in
-  let defs  = ex ex_def prog in
+  let dts   = ListUtils.filter_map just_datatype prog in
+  let eis   = ListUtils.filter_map just_effin prog in
+  let decls = ListUtils.filter_map just_decl prog in
+  let defs  = ListUtils.filter_map just_def prog in
   (dts, eis, decls, defs)
 
 let add_ctr set ctr = CtrSet.M.add ctr.sctr_name set
@@ -128,6 +129,8 @@ and translate_ivalue st iv =
 	Mivalue_sig v
       else
 	Mivalue_var v
+  | IValue_int n -> Mivalue_int n
+  | IValue_bool b -> Mivalue_bool b
   | IValue_icomp ic
     -> Mivalue_icomp (translate_icomp st ic)
 
@@ -218,5 +221,7 @@ let translate prog =
   let state = { def_name = ""; cset; sset } in
   let defs = make_hdr_defs state decls defs in
   let hmap = List.fold_left add_def HandlerMap.empty defs in
-  let mtree = merge dts eis hmap in
-  (mtree, hmap, cset, sset)
+  if HandlerMap.M.mem "main" hmap then
+    let mtree = merge dts eis hmap in
+    (mtree, hmap, cset, sset)
+  else no_main ()

@@ -43,6 +43,8 @@ and mid_cvalue =
 and mid_ivalue =
   | Mivalue_var of string
   | Mivalue_sig of string
+  | Mivalue_int of int
+  | Mivalue_bool of bool
   | Mivalue_icomp of mid_icomputation
 
 and mid_icomputation =

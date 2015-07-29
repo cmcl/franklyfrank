@@ -65,6 +65,8 @@ and icomp_of_string ic =
 and ival_of_string iv =
   match iv with
   | IValue_ident id -> id
+  | IValue_int n -> string_of_int n
+  | IValue_bool b -> string_of_bool b
   | IValue_icomp ic -> icomp_of_string ic
 
 and ccomp_of_string cc =

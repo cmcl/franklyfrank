@@ -30,6 +30,9 @@ and checkable_value =
 and inferable_value =
   | IValue_ident of string
       (** Could be a monovar, polyvar or effect signature. *)
+  | IValue_int of int
+  | IValue_bool of bool
+  (** Int/Bool literals *)
   | IValue_icomp of inferable_computation
 
 and inferable_computation =

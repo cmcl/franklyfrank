@@ -20,7 +20,8 @@ module type COMP = sig
   include MONAD
 
   type comp = value t
-  and  value =
+  and value =
+    | VBool of bool
     | VInt of int
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
@@ -48,4 +49,4 @@ val tie : bindings_pre_env -> env
 (* Return v is matched by x *)
 (* Return (suc v) is matched by suc x and x *)
 
-val eval : MidTree.prog -> unit
+val eval : MidTree.prog -> Comp.comp

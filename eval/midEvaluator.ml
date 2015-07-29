@@ -6,13 +6,16 @@
  ***********************************************************************
  *)
 
+open MidTranslate
+open MidTree
 open Monad
 
 module type COMP = sig
   include MONAD
 
   type comp = value t
-  and  value =
+  and value =
+    | VBool of bool
     | VInt of int
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
@@ -30,6 +33,7 @@ module Comp : COMP = struct
   and comp = value t
 
   and value =
+    | VBool of bool
     | VInt of int
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
@@ -53,10 +57,65 @@ module Comp : COMP = struct
   let command c vs = Command (c, vs, return)
 end
 
+open Comp
+
 type env = string -> Comp.value
 type bindings_pre_env = string -> (env -> Comp.comp list -> Comp.comp)
 
 let rec tie : bindings_pre_env -> env =
   fun pre_env x -> Comp.VMultiHandler (pre_env x (tie pre_env))
 
-let eval prog = ()
+module ENV = Map.Make(String)
+
+let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
+
+let rec eval prog =
+  let hdrs = ListUtils.filter_map just_hdrs prog in
+  let pre_env = List.fold_right construct_env_entry hdrs ENV.empty in
+  let rec env' =
+    lazy (ENV.map (fun f ->
+      return (VMultiHandler (fun cs -> f (Lazy.force env') cs))) pre_env) in
+  let env = Lazy.force env' in
+  let main = ENV.find "main" env in main
+
+and construct_env_entry hdr env =
+  ENV.add hdr.mhdr_name (fun env cs -> eval_tlhdrs env hdr.mhdr_defs cs) env
+
+and eval_tlhdrs env cls cs =
+  List.fold_right (eval_clause env cs) cls pat_match_fail
+
+and eval_clause env cs (ps, e) acc =
+  if pat_matches cs ps then eval_ccomp env e else acc
+
+and pat_matches cs ps = false
+
+and pat_match_fail = command "PatternMatchFail" []
+
+and unhandled_comp = command "UnhandledComputation" []
+
+and eval_ccomp env cc =
+  match cc with
+  | Mccomp_cvalue cv -> eval_cvalue env cv
+  | Mccomp_clause cl -> unhandled_comp
+
+and eval_cvalue env cv =
+  match cv with
+  | Mcvalue_ivalue iv -> eval_ivalue env iv
+  | Mcvalue_ctr (k, vs) -> unhandled_comp
+  | Mcvalue_thunk cc -> unhandled_comp
+
+and eval_ivalue env iv =
+  match iv with
+  | Mivalue_var v -> if ENV.mem v env then eval_hdr env v
+                     else eval_var env v
+  | Mivalue_icomp ic -> eval_icomp env ic
+  | _ -> unhandled_comp
+
+and eval_icomp env ic =
+  match ic with
+  | Micomp_force iv -> eval_ivalue env iv
+  | Micomp_app (iv, cs) -> unhandled_comp
+
+and eval_var env x = ENV.find x env
+
+and eval_hdr env f = unhandled_comp

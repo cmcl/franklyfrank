@@ -30,3 +30,6 @@ runState : X -> [State X]Y    -> Y
 runState   x    [put x' -> k] =  runState! x' (k! unit);
 runState   x    [get    -> k] =  runState! x  (k! x);
 runState   x          x       =  x;
+
+main : Bool
+main = runState! 3 (gt! (get!) 2);

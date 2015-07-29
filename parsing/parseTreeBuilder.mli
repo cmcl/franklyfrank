@@ -40,6 +40,8 @@ module CValue :
 module IValue :
   sig
     val ident : string -> inferable_value
+    val integer : int -> inferable_value
+    val boolean : bool -> inferable_value
     val icomp : inferable_computation -> inferable_value
   end
 

@@ -14,6 +14,7 @@ open MidTree
 type mid_error =
   | Merr_inv_clause of string
   | Merr_inv_ctr of string
+  | Merr_no_main of string
 
 exception Error of mid_error
 
@@ -23,6 +24,9 @@ module type HMS = sig
   (** Return an empty mapping. *)
   val lookup : string -> t -> handler_definition
   (** Raises a [Not_found] exception if not found. *)
+  val mem : string -> t -> bool
+  (** Return true if the map contains the specified string false
+      otherwise. *)
 end
 
 module type NS = sig

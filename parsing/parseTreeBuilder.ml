@@ -52,6 +52,10 @@ end
 module IValue = struct
   let ident name = IValue_ident name
 
+  let integer n = IValue_int n
+
+  let boolean b = IValue_bool b
+
   let icomp ic = IValue_icomp ic
 end
 

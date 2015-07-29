@@ -14,12 +14,15 @@
 %token DOT
 %token EOF
 %token EQUAL
+%token FALSE
 %token <string> ID
 %token INTERFACE
+%token <int> INTLIT
 %token LARROW
 %token LBRACE LBRACKET LPAREN
 %token RBRACE RBRACKET RPAREN
 %token SEMI
+%token TRUE
 
 %left BAR
 %left LARROW
@@ -83,11 +86,17 @@ paren_checkable_value:
 
 inferable_value:
   | ID                            { IValue.ident $1 }
+  | INTLIT                        { IValue.integer $1 }
+  | TRUE                          { IValue.boolean true }
+  | FALSE                         { IValue.boolean false }
   | inferable_computation         { IValue.icomp $1 }
   ;
 
 paren_inferable_value:
   | ID                            { IValue.ident $1 }
+  | INTLIT                        { IValue.integer $1 }
+  | TRUE                          { IValue.boolean true }
+  | FALSE                         { IValue.boolean false }
   | LPAREN inferable_computation RPAREN { IValue.icomp $2 }
   ;
 

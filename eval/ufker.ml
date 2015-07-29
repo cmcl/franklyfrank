@@ -23,11 +23,12 @@ let parse_with_error lexbuf =
 
 let translate_with_error prog =
   let ext = function  Merr_inv_clause msg -> msg
-                    | Merr_inv_ctr msg -> msg in
+                    | Merr_inv_ctr msg -> msg
+                    | Merr_no_main msg -> msg in
   try translate prog with
   | MidTranslate.Error err
     -> fprintf stderr "Translation error: %s\n" (ext err);
-      ([], HandlerMap.empty, CtrSet.empty, SigSet.empty)
+      exit (-1)
 
 let rec parse_file lexbuf =
   match parse_with_error lexbuf with
@@ -42,7 +43,7 @@ let loop filename =
   } in
   let (mtree, hmap, cset, sset) = parse_file lexbuf in
   print_string (ShowMidProg.show mtree);
-  eval mtree;
+  let res = eval mtree in
   close_in inx
 
 let () = Arg.parse [] loop "Frank Parser:"

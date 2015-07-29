@@ -24,9 +24,12 @@ let id = alpha (alphanumeric | ['\''])*
 rule token = parse
   | white     { token lexbuf }
   | newline   { new_line lexbuf; token lexbuf }
+  | int       { INTLIT (int_of_string (Lexing.lexeme lexbuf)) }
   | "!"         { BANG }
   | "data"      { DATA }
   | "interface" { INTERFACE }
+  | "true"      { TRUE }
+  | "false"     { FALSE }
   | '{'         { LBRACE }
   | "{-"        { comment_depth := !comment_depth + 1; comment lexbuf }
   | '['       { LBRACKET }
