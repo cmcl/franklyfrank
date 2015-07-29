@@ -9,6 +9,7 @@
 open MidTranslate
 open MidTree
 open Monad
+open ParseTree
 
 module type COMP = sig
   include MONAD
@@ -23,6 +24,7 @@ module type COMP = sig
   val (>=>) : (value -> 'a t) -> ('a -> 'b t) -> value -> 'b t
   val sequence : ('a t) list -> ('a list) t
   val command : string -> value list -> comp
+  val show : comp -> string
 end
 
 module Comp : COMP = struct
@@ -55,15 +57,24 @@ module Comp : COMP = struct
     | m :: ms -> m >>= (fun x -> sequence ms >>= (fun xs -> return (x :: xs)))
 
   let command c vs = Command (c, vs, return)
+
+  let rec vshow v =
+    match v with
+    | VBool b -> string_of_bool b
+    | VInt n -> string_of_int n
+    | VCon (k, vs) -> "(" ^ k ^ (string_of_args " " vshow vs) ^ ")"
+    | VMultiHandler _ -> "MULTIHANDLER"
+
+  let show c =
+    match c with
+    | Command (c, vs, _)
+      -> "Command (" ^ c ^ (string_of_args " " vshow vs) ^ ")"
+    | Return v
+      -> "Return (" ^ vshow v ^ ")"
+
 end
 
 open Comp
-
-type env = string -> Comp.value
-type bindings_pre_env = string -> (env -> Comp.comp list -> Comp.comp)
-
-let rec tie : bindings_pre_env -> env =
-  fun pre_env x -> Comp.VMultiHandler (pre_env x (tie pre_env))
 
 module ENV = Map.Make(String)
 

@@ -31,15 +31,11 @@ module type COMP = sig
 
   val sequence : ('a t) list -> ('a list) t
   val command : string -> value list -> comp
+  val show : comp -> string
 end
 
 module Comp : COMP
 (** Module representing monadic computation trees. *)
-
-type env = string -> Comp.value
-type bindings_pre_env = string -> (env -> Comp.comp list -> Comp.comp)
-
-val tie : bindings_pre_env -> env
 
 (* increment function *)
 (* command "get" [] >>= (fun (Int x) -> *)
