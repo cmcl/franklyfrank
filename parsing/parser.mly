@@ -122,6 +122,9 @@ pattern:
 
 value_pattern:
   | ID                                    { Pattern.var $1 }
+  | INTLIT                                { Pattern.integer $1 }
+  | TRUE                                  { Pattern.boolean true }
+  | FALSE                                 { Pattern.boolean false}
   | LPAREN ID value_pattern+ RPAREN       { Pattern.ctr $2 ~pats:$3 () }
   ;
 

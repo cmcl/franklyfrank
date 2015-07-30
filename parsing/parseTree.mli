@@ -54,6 +54,9 @@ and computation_pattern =
 
 and value_pattern =
   | Svpat_var of string
+  | Svpat_int of int
+  | Svpat_bool of bool
+   (** Int/Bool literals *)
   | Svpat_ctr of string * value_pattern list
 
 and value_definition =

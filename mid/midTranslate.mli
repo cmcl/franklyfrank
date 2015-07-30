@@ -19,14 +19,8 @@ type mid_error =
 exception Error of mid_error
 
 module type HMS = sig
-  type t
-  val empty : t
-  (** Return an empty mapping. *)
-  val lookup : string -> t -> handler_definition
-  (** Raises a [Not_found] exception if not found. *)
-  val mem : string -> t -> bool
-  (** Return true if the map contains the specified string false
-      otherwise. *)
+  include Map.S with type key := string
+  type mt = handler_definition t
 end
 
 module type NS = sig
@@ -48,6 +42,6 @@ module SigSet : NS
 (** Store for identifiers representing signatures of effect interfaces. *)
 
 val translate : ParseTree.prog ->
-  MidTree.prog * HandlerMap.t * CtrSet.t * SigSet.t
+  MidTree.prog * HandlerMap.mt * CtrSet.t * SigSet.t
 (** Process the parse tree and return the mid-level tree and its associated
     mappings for global names (handlers), constructors and commands. *)

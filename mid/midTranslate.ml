@@ -21,14 +21,8 @@ let invalid_constructor k def =
 let no_main () = raise (Error (Merr_no_main "No main function defined."))
 
 module type HMS = sig
-  type t
-  val empty : t
-  (** Return an empty mapping. *)
-  val lookup : string -> t -> handler_definition
-  (** Raises a [Not_found] exception if not found. *)
-  val mem : string -> t -> bool
-  (** Return true if the map contains the specified string false
-      otherwise. *)
+  include Map.S with type key := string
+  type mt = handler_definition t
 end
 
 module type NS = sig
@@ -42,10 +36,8 @@ end
 
 module HandlerMap = struct
   module M = Map.Make(String)
-  type t = handler_definition M.t
-  let empty = M.empty
-  let lookup h m = M.find h m
-  let mem = M.mem
+  include M
+  type mt = handler_definition M.t
 end
 
 module CtrSet = struct
@@ -85,7 +77,7 @@ let add_ctr set ctr = CtrSet.M.add ctr.sctr_name set
 
 let add_sig set si = SigSet.M.add si.ssig_name set
 
-let add_def map def = HandlerMap.M.add def.mhdr_name def map
+let add_def map def = HandlerMap.add def.mhdr_name def map
 
 (** Functions for refining the pattern matching of handlers. *)
 let rec refine_vpat st vp =
@@ -202,7 +194,7 @@ let make_hdr_defs st decls defs =
     a complete list representing the program. *)
 
 let get_hdrs hmap =
-  let bindings = HandlerMap.M.bindings hmap in
+  let bindings = HandlerMap.bindings hmap in
   List.map (fun (k,hdr) -> Mtld_handler hdr) bindings
 
 let merge dts eis hmap =
@@ -221,7 +213,7 @@ let translate prog =
   let state = { def_name = ""; cset; sset } in
   let defs = make_hdr_defs state decls defs in
   let hmap = List.fold_left add_def HandlerMap.empty defs in
-  if HandlerMap.M.mem "main" hmap then
+  if HandlerMap.mem "main" hmap then
     let mtree = merge dts eis hmap in
     (mtree, hmap, cset, sset)
   else no_main ()

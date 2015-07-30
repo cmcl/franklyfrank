@@ -108,6 +108,8 @@ module Pattern :
     val cpat : computation_pattern -> pattern
 
     val var : string -> value_pattern
+    val integer : int -> value_pattern
+    val boolean : bool -> value_pattern
     val ctr : string -> ?pats:value_pattern list -> unit ->
       value_pattern
     val request : string -> ?pats:value_pattern list -> string ->

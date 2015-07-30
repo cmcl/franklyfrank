@@ -8,6 +8,7 @@
  *)
 
 open Monad
+open ParseTree
 
 (*i | k vs
    | command
@@ -32,6 +33,8 @@ module type COMP = sig
   val sequence : ('a t) list -> ('a list) t
   val command : string -> value list -> comp
   val show : comp -> string
+  val vshow : value -> string
+  val pat_matches : comp list -> pattern list -> bool
 end
 
 module Comp : COMP
@@ -41,8 +44,4 @@ module Comp : COMP
 (* command "get" [] >>= (fun (Int x) -> *)
 (*   command "put" [return (Int (x+1))]) *)
 
-(* Command ("put", [v], r) is matched by [put x -> k] and [?c -> k] and [t] *)
-(* Return v is matched by x *)
-(* Return (suc v) is matched by suc x and x *)
-
-val eval : MidTree.prog -> Comp.comp
+val eval : MidTranslate.HandlerMap.mt -> MidTree.prog -> Comp.comp

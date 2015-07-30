@@ -43,7 +43,7 @@ let loop filename =
   } in
   let (mtree, hmap, cset, sset) = parse_file lexbuf in
   print_string (ShowMidProg.show mtree);
-  let res = eval mtree in print_endline (Comp.show res);
+  let res = eval hmap mtree in print_endline (Comp.show res);
   close_in inx
 
 let () = Arg.parse [] loop "Frank Parser:"

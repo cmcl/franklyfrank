@@ -114,6 +114,10 @@ module Pattern = struct
 
   let var name = Svpat_var name
 
+  let integer n = Svpat_int n
+
+  let boolean b = Svpat_bool b
+
   let ctr name ?(pats = []) () = Svpat_ctr (name, pats)
 
   let request name ?(pats = []) cont = Scpat_request (name, pats, cont)
