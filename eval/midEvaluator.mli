@@ -17,7 +17,7 @@ open ParseTree
    | local-handler (handler-def, locals)
    | continuation *)
 
-module type COMP = sig
+module type EVALCOMP = sig
   include MONAD
 
   type comp = value t
@@ -34,14 +34,15 @@ module type COMP = sig
   val command : string -> value list -> comp
   val show : comp -> string
   val vshow : value -> string
-  val pat_matches : comp list -> pattern list -> bool
+
+  val eval : MidTranslate.HandlerMap.mt -> MidTree.prog -> comp
+  (** Evaluation function *)
 end
 
-module Comp : COMP
-(** Module representing monadic computation trees. *)
+module EvalComp : EVALCOMP
+(** Module representing evaluation of mid-level tree to monadic computation
+    trees. *)
 
 (* increment function *)
 (* command "get" [] >>= (fun (Int x) -> *)
 (*   command "put" [return (Int (x+1))]) *)
-
-val eval : MidTranslate.HandlerMap.mt -> MidTree.prog -> Comp.comp

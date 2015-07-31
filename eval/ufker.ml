@@ -42,8 +42,10 @@ let loop filename =
     lexbuf.lex_curr_p with pos_fname = filename
   } in
   let (mtree, hmap, cset, sset) = parse_file lexbuf in
-  print_string (ShowMidProg.show mtree);
-  let res = eval hmap mtree in print_endline (Comp.show res);
+  Debug.debug_flag true;
+  Debug.print "%s" (ShowMidProg.show mtree);
+  let res = EvalComp.eval hmap mtree in
+  Debug.print "%s\n" (EvalComp.show res);
   close_in inx
 
 let () = Arg.parse [] loop "Frank Parser:"
