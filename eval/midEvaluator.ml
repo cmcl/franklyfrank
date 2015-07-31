@@ -160,10 +160,11 @@ module EvalComp : EVALCOMP = struct
     else
       ENV.add hdr.mhdr_name (fun env cs ->
 	Debug.print "Evaluating handler %s...\n" hdr.mhdr_name;
-	eval_tlhdrs env hdr.mhdr_defs cs) env
+	eval_tlhdrs env hdr cs) env
 
-  and eval_tlhdrs env cls cs =
-    List.fold_right (eval_clause env cs) cls pat_match_fail
+  and eval_tlhdrs env hdr cs =
+    let cls = hdr.mhdr_defs in
+    List.fold_right (eval_clause env cs) cls (fwd_clauses env hdr cs)
 
   and eval_clause env cs (ps, cc) acc =
     Debug.print "%s with %s\n" (string_of_args ", " ~bbegin:false show cs)
@@ -171,6 +172,31 @@ module EvalComp : EVALCOMP = struct
     if pat_matches cs ps then eval_ccomp (extend env cs ps) cc else acc
 
   and extend env cs ps = env
+
+  and fwd_clauses env hdr cs =
+    List.fold_right (fwd_cls env hdr) (diag (gen_cpats cs)) pat_match_fail
+
+  and repeat x n = if n <= 0 then [] else x :: (repeat x (n-1))
+
+  and gen_cpats xs =
+    let n = List.length xs in
+    List.combine (repeat [] n) (repeat xs n)
+
+  and diag = function
+    | (ys, x :: xs) :: xss -> (ys, x, xs) :: diag (List.map shift xss)
+    |           _          ->             []
+
+  and shift = function
+    | (ys, x :: xs) -> (x :: ys, xs)
+    |    _  as p    ->       p
+
+  and fwd_cls env hdr (cs1, c, cs2) acc =
+    match c with
+    | Command (s, vs, r)
+      -> command s vs >>=
+           fun z -> let cs = (List.rev cs1) @ [r z] @ cs2 in
+		    eval_tlhdrs env hdr cs
+    | _ -> acc
 
   and pat_match_fail = command "PatternMatchFail" []
 
