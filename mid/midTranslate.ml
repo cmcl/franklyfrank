@@ -86,6 +86,7 @@ let rec refine_vpat st vp =
     -> if CtrSet.mem v st.cset then Svpat_ctr (v, []) else vp   
   | Svpat_ctr (k, ps)
     -> let ps' = List.map (refine_vpat st) ps in Svpat_ctr (k, ps')
+  | Svpat_int _ | Svpat_bool _ -> vp
 
 let refine_cpat st cp =
   match cp with
