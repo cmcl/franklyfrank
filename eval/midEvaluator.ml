@@ -80,48 +80,77 @@ module EvalComp : EVALCOMP = struct
     | Return v
       -> "Return (" ^ vshow v ^ ")"
 
+  let is_some ox = match ox with Some _ -> true | _ -> false
+
+  let len_cmp vs vs' = List.length vs = List.length vs'
+  let zip = List.combine
+  let foldr = List.fold_right
+
   (* Return v is matched by x
    * Return (suc v) is matched by suc x and x *)
-  let rec match_value (v, p) m =
-    if not m then m
-    else
-      match v, p with
-      | _, Svpat_var x -> true
-      | VBool b, Svpat_bool b' -> b = b'
-      | VInt n, Svpat_int n' -> n = n'
-      | VCon (k, vs), Svpat_ctr (k', vs')
-	-> k = k' && List.length vs = List.length vs' &&
-           (List.fold_right match_value (List.combine vs vs') true)
-      | _ -> false
+  let rec match_value (v, p) oenv =
+    match oenv with
+    | None -> None
+    | Some env ->
+      begin
+	match v, p with
+	| _, Svpat_var x -> if ENV.mem x env then None
+                            else Some (ENV.add x (return v) env)
+	| VBool b, Svpat_bool b' -> Some env
+	| VInt n, Svpat_int n' -> Some env
+	| VCon (k, vs), Svpat_ctr (k', vs')
+	  -> if k = k' && len_cmp vs vs' then
+	      let oenv = foldr match_value (zip vs vs') (Some env) in
+	      begin
+		match oenv with
+		| None -> None
+		| Some env -> Some (ENV.add k (return (VCon (k, vs))) env)
+	      end
+	    else None
+	| _ -> None
+      end
 
   (* Command ("put", [v], r) is matched by [put x -> k] and [?c -> k] and
      [t] *)
-  let match_command (c, vs, r) p =
+  let match_command (c, vs, r) p env =
     match p with
-    | Scpat_request (c', vs', _)
-      -> c = c' && List.length vs = List.length vs' &&
-           (List.fold_right match_value (List.combine vs vs') true)
-    | _ -> false
+    | Scpat_request (c', vs', r')
+      -> if c = c' && c' <> r' && len_cmp vs vs' then
+	  let oenv = foldr match_value (zip vs vs') (Some env) in
+	  begin
+	    match oenv with
+	    | None -> None
+	    | Some env -> if ENV.mem c env then None (*uniq cond*)
+	                  else Some (ENV.add r' (return (lift r))
+				       (ENV.add c (Command (c, vs, r)) env))
+	  end
+	else None
+    | _ -> None
 
-  let match_pair (c, p) m =
-    if not m then m
-    else
-      match c, p.spat_desc with
-      | Command (c', vs, r), Spat_comp cp -> match_command (c', vs, r) cp
-      | Return v, Spat_value vp
-	-> let res = match_value (v, vp) m in
-	   Debug.print "Matching %s with %s...%s\n"
-	     (vshow v) (ShowPattern.show p) (string_of_bool res); res
-      | _ -> Debug.print "Whoa! No matches: %s with %s\n" (show c)
-	             (ShowPattern.show p); false
+  let match_pair (c, p) oenv =
+    match oenv with
+    | None -> None
+    | Some env ->
+      begin
+	match c, p.spat_desc with
+	| Command (c', vs, r), Spat_comp cp
+	  -> match_command (c', vs, r) cp env
+	| Return v, Spat_value vp
+	  -> let res = match_value (v, vp) (Some env) in
+	     Debug.print "Matching %s with %s...%s\n"
+	       (vshow v) (ShowPattern.show p)
+	       (string_of_bool (is_some res)); res
+	| _ -> Debug.print "Whoa! No matches: %s with %s\n" (show c)
+	  (ShowPattern.show p); None
+      end
 
-  let pat_matches cs ps =
+  let pat_matches env cs ps =
     if List.length cs > List.length ps then
       raise (invalid_arg "too many arguments")
     else if List.length cs < List.length ps then
       raise (invalid_arg "too few arguments")
     else
-      List.fold_right match_pair (List.combine cs ps) true
+      List.fold_right match_pair (List.combine cs ps) (Some env)
 
   let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
 
@@ -169,7 +198,9 @@ module EvalComp : EVALCOMP = struct
   and eval_clause env cs (ps, cc) acc =
     Debug.print "%s with %s\n" (string_of_args ", " ~bbegin:false show cs)
       (string_of_args ", " ~bbegin:false ShowPattern.show ps);
-    if pat_matches cs ps then eval_ccomp (extend env cs ps) cc else acc
+    match pat_matches env cs ps with
+    | Some env' -> eval_ccomp env' cc
+    | None -> acc
 
   and extend env cs ps = env
 
@@ -222,8 +253,7 @@ module EvalComp : EVALCOMP = struct
 
   and eval_ivalue env iv =
     match iv with
-    | Mivalue_var v -> if ENV.mem v env then eval_hdr env v
-      else eval_var env v
+    | Mivalue_var v -> ENV.find v env
     | Mivalue_sig s -> eval_sig env s
     | Mivalue_int n -> return (VInt n)
     | Mivalue_bool b -> return (VBool b)
@@ -239,11 +269,6 @@ module EvalComp : EVALCOMP = struct
       function VMultiHandler f -> f cs
       | _ as v -> not_hdr ~desc:(vshow v) () in
     mhdr (List.map (eval_ccomp env) cs)
-
-  and eval_var env x =
-    Debug.print "Searching for %s...\n" x; return (VInt 2)
-
-  and eval_hdr env f = Debug.print "Looking for %s...\n" f; ENV.find f env
 
   and eval_sig env s =
     return (VMultiHandler
