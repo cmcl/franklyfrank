@@ -26,6 +26,7 @@ module CComputation :
     val clause : pattern list -> checkable_computation ->
       checkable_computation
     val compose : checkable_computation list -> checkable_computation
+    val empty : checkable_computation
   end
 
 (** Checkable values *)

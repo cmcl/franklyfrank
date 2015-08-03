@@ -1,0 +1,49 @@
+data List X = nil  : (List X)
+            | cons : X -> (List X) -> (List X).
+
+data Zero =.
+
+data Unit = unit : Unit.
+
+append : (List X) -> (List X) -> (List X)
+append nil         ys = ys;
+append (cons x xs) ys = cons x (append! xs ys);
+
+interface Send X = send : X -> Unit.
+
+interface Receive X = receive : X.
+
+interface Abort = aborting : Zero.
+
+map : {A -> B} -> (List A) -> (List B)
+map f nil = nil;
+map f (cons x xs) = cons (f! x) (map! f xs);
+
+bind : X -> {X -> Y} -> Y
+bind x f = f! x;
+
+abort : [Abort]X
+abort = bind! (aborting!) ({()});
+
+semi : X -> Y -> Y
+semi   x    y =  y;
+
+sends : (List X) -> [Send X]Unit
+sends xs = semi! (map! send xs) unit;
+
+catter : [Receive (List X)](List X)
+catter = bind! (receive!) ({ nil -> nil | xs -> append! xs (catter!) });
+
+pipe : [Send X]Unit -> [Receive X]Y   -> [Abort]Y
+pipe         _               y        =     y;
+pipe        unit             _        =   abort!;
+pipe   [send x -> s]   [receive -> k] =  pipe! (s! unit) (r! x);
+
+fib : List Int
+fib = cons 1 (cons 1 (cons 2 (cons 3 (cons 5 (cons 8 nil)))));
+
+sender : [Send (List Int)]Unit
+sender = sends! (cons fib nil);
+
+main : [Abort](List Int)
+main = pipe! sender catter;

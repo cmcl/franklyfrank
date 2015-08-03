@@ -12,6 +12,7 @@
 %token COMMA
 %token DATA
 %token DOT
+%token EMPCLS
 %token EOF
 %token EQUAL
 %token FALSE
@@ -49,6 +50,7 @@ checkable_computation:
   | checkable_value                     { CComputation.cvalue $1 }
   | clauses = separated_nonempty_list(BAR, pat_match_computation)
       { CComputation.compose clauses }
+  | EMPCLS                              { CComputation.empty }
   ;
 
 pat_checkable_computation:

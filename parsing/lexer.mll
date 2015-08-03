@@ -34,6 +34,7 @@ rule token = parse
   | "{-"        { comment_depth := !comment_depth + 1; comment lexbuf }
   | '['       { LBRACKET }
   | '('       { LPAREN }
+  | "()"      { EMPCLS }
   | '}'       { RBRACE }
   | ']'       { RBRACKET }
   | ')'       { RPAREN }

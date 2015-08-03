@@ -16,9 +16,9 @@ interface State X = get : X | put : S -> Unit.
 
 interface Receive X = receive : X.
 
-fmap : {A -> B} -> List -> List
-fmap f nil = nil;
-fmap f (cons x xs) = cons (f! x) (fmap! f xs);
+map : {A -> B} -> List A -> List B
+map f nil = nil;
+map f (cons x xs) = cons (f! x) (fmap! f xs);
 
 bind : X -> {X -> Y} -> Y
 bind x f = f! x;

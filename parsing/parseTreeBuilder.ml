@@ -39,6 +39,8 @@ module CComputation = struct
   let clause pats comp = CComp_hdr_clause (pats, comp)
 
   let compose clauses = CComp_compose (clauses)
+
+  let empty = CComp_emp_clause
 end
 
 module CValue = struct
