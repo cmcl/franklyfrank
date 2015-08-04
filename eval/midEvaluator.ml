@@ -10,6 +10,7 @@ open MidTranslate
 open MidTree
 open Monad
 open ParseTree
+open ParseTreeBuilder
 open Printf
 
 module type EVALCOMP = sig
@@ -120,7 +121,7 @@ module EvalComp : EVALCOMP = struct
 	  begin
 	    match oenv with
 	    | None -> None
-	    | Some env -> if ENV.mem c env then None (*uniq cond*)
+	    | Some env -> if ENV.mem c env then	None (*uniq cond*)
 	                  else Some (ENV.add r' (return (lift r))
 				       (ENV.add c (Command (c, vs, r)) env))
 	  end
@@ -134,7 +135,10 @@ module EvalComp : EVALCOMP = struct
       begin
 	match c, p.spat_desc with
 	| Command (c', vs, r), Spat_comp cp
-	  -> match_command (c', vs, r) cp env
+	  -> let res = match_command (c', vs, r) cp env in
+	     Debug.print "Matching %s with %s...%s\n"
+	       (show c) (ShowPattern.show p) (string_of_bool (is_some res));
+	     res
 	| Return v, Spat_value vp
 	  -> let res = match_value (v, vp) (Some env) in
 	     Debug.print "Matching %s with %s...%s\n"
@@ -158,6 +162,9 @@ module EvalComp : EVALCOMP = struct
     match HandlerMap.mem n hmap with
     | true -> raise (UserDefShadowingBuiltin n)
     | _ -> ()
+
+  (** Anonymous handler counter *)
+  let anonhdr = ref 0
 
   (** Builtin functions *)
   let gtdef env [cx; cy] = cx >>=
@@ -243,13 +250,30 @@ module EvalComp : EVALCOMP = struct
   and eval_ccomp env cc =
     match cc with
     | Mccomp_cvalue cv -> eval_cvalue env cv
-    | Mccomp_clause cls -> unhandled_comp ~desc:"clses" ()
+    | Mccomp_clause cls
+      -> return (VMultiHandler (fun cs -> eval_mid_clause env cls cs))
+
+  and eval_mid_clause env cls cs =
+    match cls with
+    | Mcomp_clauses cls
+      -> anonhdr := !anonhdr + 1;
+	 let hdr =
+	   {
+	     mhdr_name = "AnonMH" ^ (string_of_int !anonhdr);
+	     mhdr_type =
+	       TypExp.var("AnonMH" ^ (string_of_int !anonhdr) ^ "T");
+	     mhdr_defs = cls
+	   }
+	 in eval_tlhdrs env hdr cs
+    | Mcomp_emp_clause -> command "NoClausesProbablyShouldNotGetHere" []
 
   and eval_cvalue env cv =
     match cv with
     | Mcvalue_ivalue iv -> eval_ivalue env iv
-    | Mcvalue_ctr (k, vs) -> unhandled_comp ~desc:"ctr" ()
-    | Mcvalue_thunk cc -> unhandled_comp ~desc:"suscomp" ()
+    | Mcvalue_ctr (k, vs)
+      -> sequence (List.map (eval_cvalue env) vs) >>=
+         fun vs -> return (VCon (k, vs))
+    | Mcvalue_thunk cc -> eval_ccomp env cc
 
   and eval_ivalue env iv =
     match iv with

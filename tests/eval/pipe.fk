@@ -37,13 +37,13 @@ catter = bind! (receive!) ({ nil -> nil | xs -> append! xs (catter!) });
 pipe : [Send X]Unit -> [Receive X]Y   -> [Abort]Y
 pipe         _               y        =     y;
 pipe        unit             _        =   abort!;
-pipe   [send x -> s]   [receive -> k] =  pipe! (s! unit) (r! x);
+pipe   [send x -> s]   [receive -> r] =  pipe! (s! unit) (r! x);
 
-fib : List Int
+fib : (List Int)
 fib = cons 1 (cons 1 (cons 2 (cons 3 (cons 5 (cons 8 nil)))));
 
 sender : [Send (List Int)]Unit
-sender = sends! (cons fib nil);
+sender = sends! (fib!);
 
 main : [Abort](List Int)
-main = pipe! sender catter;
+main = pipe! (sender!) (catter!);
