@@ -97,8 +97,8 @@ module EvalComp : EVALCOMP = struct
 	match v, p with
 	| _, Svpat_var x -> if ENV.mem x env then None
                             else Some (ENV.add x (return v) env)
-	| VBool b, Svpat_bool b' -> Some env
-	| VInt n, Svpat_int n' -> Some env
+	| VBool b, Svpat_bool b' -> if b = b' then Some env else None
+	| VInt n, Svpat_int n' -> if n = n' then Some env else None
 	| VCon (k, vs), Svpat_ctr (k', vs')
 	  -> if k = k' && len_cmp vs vs' then
 	      let oenv = foldr match_value (zip vs vs') (Some env) in
@@ -134,18 +134,12 @@ module EvalComp : EVALCOMP = struct
     | Some env ->
       begin
 	match c, p.spat_desc with
+	| _ , Spat_any -> Some env
 	| Command (c', vs, r), Spat_comp cp
-	  -> let res = match_command (c', vs, r) cp env in
-	     Debug.print "Matching %s with %s...%s\n"
-	       (show c) (ShowPattern.show p) (string_of_bool (is_some res));
-	     res
+	  -> match_command (c', vs, r) cp env
 	| Return v, Spat_value vp
-	  -> let res = match_value (v, vp) (Some env) in
-	     Debug.print "Matching %s with %s...%s\n"
-	       (vshow v) (ShowPattern.show p)
-	       (string_of_bool (is_some res)); res
-	| _ -> Debug.print "Whoa! No matches: %s with %s\n" (show c)
-	  (ShowPattern.show p); None
+	  -> match_value (v, vp) (Some env)
+	| _ -> None
       end
 
   let pat_matches env cs ps =
@@ -173,9 +167,21 @@ module EvalComp : EVALCOMP = struct
                | _ as vy -> invalid_arg ("second_arg:" ^ vshow vy))
             | _ as vx -> invalid_arg ("first arg:" ^ vshow vx)
 
+  let minusdef env [cx; cy] = cx >>=
+    function (VInt x) -> cy >>=
+      (function (VInt y) -> return (VInt (x - y))
+               | _ as vy -> invalid_arg ("second_arg:" ^ vshow vy))
+            | _ as vx -> invalid_arg ("first arg:" ^ vshow vx)
+
+  let plusdef env [cx; cy] = cx >>=
+    function (VInt x) -> cy >>=
+      (function (VInt y) -> return (VInt (x + y))
+               | _ as vy -> invalid_arg ("second_arg:" ^ vshow vy))
+            | _ as vx -> invalid_arg ("first arg:" ^ vshow vx)
+
   (** Create the builtin environment. *)
   let get_builtins () =
-    let blts = [("gt", gtdef)] in
+    let blts = [("gt", gtdef); ("minus", minusdef); ("plus", plusdef)] in
     let add_blt (n,d) env = ENV.add n d env in
     List.fold_right add_blt blts ENV.empty
 
@@ -200,16 +206,22 @@ module EvalComp : EVALCOMP = struct
 
   and eval_tlhdrs env hdr cs =
     let cls = hdr.mhdr_defs in
-    List.fold_right (eval_clause env cs) cls (fwd_clauses env hdr cs)
+    match List.fold_left (eval_clause env cs) None cls with
+    | None -> fwd_clauses env hdr cs
+    | Some c -> c
 
-  and eval_clause env cs (ps, cc) acc =
-    Debug.print "%s with %s\n" (string_of_args ", " ~bbegin:false show cs)
-      (string_of_args ", " ~bbegin:false ShowPattern.show ps);
-    match pat_matches env cs ps with
-    | Some env' -> eval_ccomp env' cc
-    | None -> acc
-
-  and extend env cs ps = env
+  and eval_clause env cs res (ps, cc) =
+    match res with
+    | Some _ -> res
+    | None
+      -> begin
+	   Debug.print "%s with %s..."
+	     (string_of_args ", " ~bbegin:false show cs)
+	     (string_of_args ", " ~bbegin:false ShowPattern.show ps);
+           match pat_matches env cs ps with
+	   | Some env' -> Debug.print "true\n"; Some (eval_ccomp env' cc)
+	   | None -> Debug.print "false\n"; None
+         end
 
   and fwd_clauses env hdr cs =
     List.fold_right (fwd_cls env hdr) (diag (gen_cpats cs)) pat_match_fail

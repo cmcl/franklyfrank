@@ -7,7 +7,7 @@ data Unit = unit : Unit.
 
 append : (List X) -> (List X) -> (List X)
 append nil         ys = ys;
-append (cons x xs) ys = cons x (append! xs ys);
+append (cons ax xs) ys = cons ax (append! xs ys);
 
 interface Send X = send : X -> Unit.
 
@@ -20,7 +20,7 @@ map f nil = nil;
 map f (cons x xs) = cons (f! x) (map! f xs);
 
 bind : X -> {X -> Y} -> Y
-bind x f = f! x;
+bind bx f = f! bx;
 
 abort : [Abort]X
 abort = bind! (aborting!) ({()});
@@ -31,19 +31,37 @@ semi   x    y =  y;
 sends : (List X) -> [Send X]Unit
 sends xs = semi! (map! send xs) unit;
 
+{-
+Does not work; infinite recursion generates unmatched receives.
 catter : [Receive (List X)](List X)
-catter = bind! (receive!) ({ nil -> nil | xs -> append! xs (catter!) });
+catter = bind! (receive!) ({ nil -> nil | cxs -> append! cxs (catter!) });
+-}
+
+catter : [Receive (List X)](List X)
+catter 0 = nil;
+catter n = bind! (receive!) ({ nil -> nil
+                             | cxs -> append! cxs (catter! (minus! n 1)) });
 
 pipe : [Send X]Unit -> [Receive X]Y   -> [Abort]Y
-pipe         _               y        =     y;
-pipe        unit             _        =   abort!;
-pipe   [send x -> s]   [receive -> r] =  pipe! (s! unit) (r! x);
+pipe         _               y         =     y;
+pipe        unit             _         =   abort!;
+pipe   [send px -> s]   [receive -> r] =  pipe! (s! unit) (r! px);
 
-fib : (List Int)
-fib = cons 1 (cons 1 (cons 2 (cons 3 (cons 5 (cons 8 nil)))));
+fib : (List (List Int))
+fib = cons
+          (cons 1 nil)
+       (cons
+	  (cons 1 (cons 2 nil))
+       (cons
+          (cons 3 (cons 5 (cons 8 nil)))
+        nil));
 
 sender : [Send (List Int)]Unit
 sender = sends! (fib!);
 
+length : (List X) -> Int
+length nil = 0;
+length (cons x xs) = plus! 1 (length! xs);
+
 main : [Abort](List Int)
-main = pipe! (sender!) (catter!);
+main = pipe! (sender!) (catter! (length! (fib!)));

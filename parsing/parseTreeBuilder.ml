@@ -113,6 +113,7 @@ module Pattern = struct
 
   let vpat vp = mk (Spat_value vp)
   let cpat cp = mk (Spat_comp cp)
+  let any () = mk Spat_any
 
   let var name = Svpat_var name
 

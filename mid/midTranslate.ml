@@ -100,6 +100,7 @@ let refine_pat st pat =
   match pat.spat_desc with
   | Spat_value vp -> Pattern.vpat(refine_vpat st vp)
   | Spat_comp cp -> Pattern.cpat(refine_cpat st cp)
+  | Spat_any -> pat
 
 (** Functions for translating the computation of a handler clause. *)
 

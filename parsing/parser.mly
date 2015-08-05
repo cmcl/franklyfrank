@@ -24,6 +24,7 @@
 %token RBRACE RBRACKET RPAREN
 %token SEMI
 %token TRUE
+%token UNDERSCORE
 
 %left BAR
 %left LARROW
@@ -120,6 +121,7 @@ pattern:
   | LPAREN pattern RPAREN             { $2 }
   | value_pattern                     { Pattern.vpat $1 }
   | LBRACKET comp_pattern RBRACKET    { Pattern.cpat $2 }
+  | UNDERSCORE                        { Pattern.any () }
   ;
 
 value_pattern:

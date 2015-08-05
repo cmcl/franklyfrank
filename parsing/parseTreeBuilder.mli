@@ -107,6 +107,7 @@ module Pattern :
 
     val vpat : value_pattern -> pattern
     val cpat : computation_pattern -> pattern
+    val any : unit -> pattern
 
     val var : string -> value_pattern
     val integer : int -> value_pattern

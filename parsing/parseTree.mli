@@ -47,6 +47,7 @@ and pattern =
 and pattern_desc =
   | Spat_value of value_pattern
   | Spat_comp of computation_pattern
+  | Spat_any
 
 and computation_pattern =
   | Scpat_request of string * value_pattern list * string
