@@ -18,6 +18,7 @@ let int = '-'? ['0'-'9']+
 let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 let alpha =  ['a'-'z' 'A'-'Z' '_']
+let uppercase = ['A'-'Z']
 let alphanumeric = alpha | ['0'-'9']
 let id = alpha (alphanumeric | ['\''])*
 
@@ -34,7 +35,6 @@ rule token = parse
   | "{-"        { comment_depth := !comment_depth + 1; comment lexbuf }
   | '['       { LBRACKET }
   | '('       { LPAREN }
-  | "()"      { EMPCLS }
   | '}'       { RBRACE }
   | ']'       { RBRACKET }
   | ')'       { RPAREN }
@@ -46,6 +46,7 @@ rule token = parse
   | '.'       { DOT }
   | ','       { COMMA }
   | '_'       { UNDERSCORE }
+  | uppercase alphanumeric* { UID (Lexing.lexeme lexbuf) }
   | id        { ID (Lexing.lexeme lexbuf) }
   | _         { raise (SyntaxError ("Unexpected character: " ^
 				       Lexing.lexeme lexbuf)) }

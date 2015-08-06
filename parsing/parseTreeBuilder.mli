@@ -26,7 +26,7 @@ module CComputation :
     val clause : pattern list -> checkable_computation ->
       checkable_computation
     val compose : checkable_computation list -> checkable_computation
-    val empty : checkable_computation
+      (** Compose a (possible empty) list of clauses. *)
   end
 
 (** Checkable values *)
@@ -49,8 +49,7 @@ module IValue :
 (** Inferable computation *)
 module IComp :
   sig
-    val forced_thunk : inferable_value -> inferable_computation
-    val app : inferable_value -> checkable_computation list ->
+    val app : inferable_value -> ?args:checkable_computation list -> unit ->
       inferable_computation
   end
 

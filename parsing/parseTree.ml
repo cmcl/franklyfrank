@@ -11,7 +11,6 @@ and term =
 and checkable_computation =
   | CComp_cvalue of checkable_value
   | CComp_hdr_clause of pattern list * checkable_computation
-  | CComp_emp_clause
   | CComp_compose of checkable_computation list
 
 and checkable_value =
@@ -28,7 +27,6 @@ and inferable_value =
   | IValue_icomp of inferable_computation
 
 and inferable_computation =
-  | IComp_force of inferable_value
   | IComp_app of inferable_value * checkable_computation list
 
 and pattern =

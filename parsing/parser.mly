@@ -12,7 +12,6 @@
 %token COMMA
 %token DATA
 %token DOT
-%token EMPCLS
 %token EOF
 %token EQUAL
 %token FALSE
@@ -24,10 +23,8 @@
 %token RBRACE RBRACKET RPAREN
 %token SEMI
 %token TRUE
+%token <string> UID
 %token UNDERSCORE
-
-%left BAR
-%left LARROW
 
 %start <ParseTree.prog> program
 
@@ -38,26 +35,30 @@ program:
   ;
 
 term:
-  | DATA ID opt_type_parameters EQUAL opt_constructor_decls DOT
+  | DATA UID opt_type_parameters EQUAL opt_constructor_decls DOT
       { Datatype.mk $2 ~params:$3 ~ctrs:$5 () |> Term.datatype }
   | ID COLON top_level_value_type { ValueDecl.mk $1 $3 |> Term.value_decl }
-  | INTERFACE ID opt_type_parameters EQUAL effect_signatures DOT
+  | INTERFACE ident opt_type_parameters EQUAL effect_signatures DOT
       { EffInterface.mk $2 ~params:$3 ~sigs:$5 () |> Term.effect_in }
   | ID pattern* EQUAL checkable_computation SEMI
       { ValueDefn.mk $1 ~pats:$2 $4 |> Term.value_defn }
   ;
 
+ident:
+  | ID       { $1 }
+  | UID      { $1 }
+  ;
+
 checkable_computation:
   | checkable_value                     { CComputation.cvalue $1 }
-  | clauses = separated_nonempty_list(BAR, pat_match_computation)
+  | clauses = separated_list(BAR, pat_match_computation)
       { CComputation.compose clauses }
-  | EMPCLS                              { CComputation.empty }
   ;
 
 pat_checkable_computation:
   | checkable_value                { CComputation.cvalue $1 }
   | LPAREN
-      clauses = separated_nonempty_list(BAR, pat_match_computation)
+      clauses = separated_list(BAR, pat_match_computation)
     RPAREN
       { CComputation.compose clauses }
   ;
@@ -70,7 +71,7 @@ pat_match_computation:
 paren_checkable_computation:
   | paren_checkable_value               { CComputation.cvalue $1 }
   | LPAREN
-      clauses = separated_nonempty_list(BAR, pat_match_computation)
+      clauses = separated_list(BAR, pat_match_computation)
     RPAREN
       { CComputation.compose clauses }
   ;
@@ -83,7 +84,7 @@ checkable_value:
 
 paren_checkable_value:
   | paren_inferable_value        { CValue.ivalue $1 }
-  | LPAREN value_constructor RPAREN   { $2 }
+  | paren_value_constructor      { $1 }
   | LPAREN suspended_computation RPAREN  { CValue.sus_comp $2 }
   ;
 
@@ -104,14 +105,18 @@ paren_inferable_value:
   ;
 
 inferable_computation:
-  | inferable_value BANG        { IComp.forced_thunk $1 }
-  | inferable_value BANG nonempty_list(paren_checkable_computation)
-      { IComp.app $1 $3 }
+  | inferable_value BANG        { IComp.app $1 () }
+  | paren_inferable_value nonempty_list(paren_checkable_computation)
+      { IComp.app $1 ~args:$2 () }
   ;
 
 value_constructor:
-  | ID paren_checkable_value+           { CValue.ctr $1 $2 }
+  | UID paren_checkable_value*           { CValue.ctr $1 $2 }
   ;
+
+paren_value_constructor:
+  | UID                             { CValue.ctr $1 [] }
+  | LPAREN value_constructor RPAREN { $2 }
 
 suspended_computation:
   | LBRACE checkable_computation RBRACE  { $2 }
@@ -126,10 +131,11 @@ pattern:
 
 value_pattern:
   | ID                                    { Pattern.var $1 }
+  | UID                                   { Pattern.ctr $1 () }
   | INTLIT                                { Pattern.integer $1 }
   | TRUE                                  { Pattern.boolean true }
   | FALSE                                 { Pattern.boolean false}
-  | LPAREN ID value_pattern+ RPAREN       { Pattern.ctr $2 ~pats:$3 () }
+  | LPAREN UID value_pattern+ RPAREN       { Pattern.ctr $2 ~pats:$3 () }
   ;
 
 comp_pattern:
@@ -185,7 +191,7 @@ constructor_decls:
   ;
 
 constructor_decl:
-  | ID COLON rargs = constructor_args
+  | UID COLON rargs = constructor_args
       { match rargs with
 	| []
 	  -> raise (SyntaxError ("Expecting constructor type"))
@@ -218,7 +224,9 @@ value_type:
   ;
 
 datatype:
-  | LPAREN ID value_type+ RPAREN           { TypExp.ctr $2 $3 }
+  | UID                           { TypExp.ctr $1 [] }
+  | LPAREN UID value_type+ RPAREN { TypExp.ctr $2 $3 }
+  ;
 
 computation_types:
   | returner                               { $1 }
@@ -249,5 +257,5 @@ effects:
   ;
 
 effect_interface:
-  | ID opt_type_parameters      { TypExp.effin $1 ~params:$2 () }
+  | ident opt_type_parameters      { TypExp.effin $1 ~params:$2 () }
   ;

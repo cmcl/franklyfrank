@@ -1,67 +1,71 @@
-data List X = nil  : (List X)
-            | cons : X -> (List X) -> (List X).
+data List x = Nil  : x
+            | Cons : x -> (List x) -> (List x).
 
 data Zero =.
 
-data Unit = unit : Unit.
+data Unit = Unit : Unit.
 
-append : (List X) -> (List X) -> (List X)
-append nil         ys = ys;
-append (cons ax xs) ys = cons ax (append! xs ys);
+append : (List x) -> (List x) -> (List x)
+append Nil          ys = ys;
+append (Cons ax xs) ys = Cons ax (append xs ys);
 
-interface Send X = send : X -> Unit.
+interface Send x = send : x -> Unit.
 
-interface Receive X = receive : X.
+interface Receive x = receive : x.
 
 interface Abort = aborting : Zero.
 
-map : {A -> B} -> (List A) -> (List B)
-map f nil = nil;
-map f (cons x xs) = cons (f! x) (map! f xs);
+map : {a -> b} -> (List a) -> (List b)
+map f Nil = Nil;
+map f (Cons x xs) = Cons (f x) (map f xs);
 
-bind : X -> {X -> Y} -> Y
-bind bx f = f! bx;
+bind : x -> {x -> y} -> y
+bind bx f = f bx;
 
-abort : [Abort]X
-abort = bind! (aborting!) ({()});
+abort : [Abort]x
+abort = bind (aborting!) ({});
 
-semi : X -> Y -> Y
+semi : x -> y -> y
 semi   x    y =  y;
 
-sends : (List X) -> [Send X]Unit
-sends xs = semi! (map! send xs) unit;
+sends : (List x) -> [Send x]Unit
+sends xs = semi (map send xs) Unit;
 
 {-
-Does not work; infinite recursion generates unmatched receives.
-catter : [Receive (List X)](List X)
-catter = bind! (receive!) ({ nil -> nil | cxs -> append! cxs (catter!) });
--}
+Does not work; infinite recursion generates unmatched receives.-}
 
+catter : [Receive (List x)](List x)
+catter = bind (receive!) ({ Nil -> Nil | cxs -> append cxs (catter!) });
+
+{-
 catter : [Receive (List X)](List X)
 catter 0 = nil;
 catter n = bind! (receive!) ({ nil -> nil
                              | cxs -> append! cxs (catter! (minus! n 1)) });
+-}
 
-pipe : [Send X]Unit -> [Receive X]Y   -> [Abort]Y
+pipe : [Send x]Unit -> [Receive x]y   -> [Abort]y
 pipe         _               y         =     y;
-pipe        unit             _         =   abort!;
-pipe   [send px -> s]   [receive -> r] =  pipe! (s! unit) (r! px);
+pipe        Unit             _         =   abort!;
+pipe   [send px -> s]   [receive -> r] =  pipe (s Unit) (r px);
 
-fib : (List (List Int))
-fib = cons
-          (cons 1 nil)
-       (cons
-	  (cons 1 (cons 2 nil))
-       (cons
-          (cons 3 (cons 5 (cons 8 nil)))
-        nil));
+fib : (List Int)
+fib = Cons
+          (Cons 1 Nil)
+      (Cons
+	  (Cons 1 (Cons 2 Nil))
+      (Cons
+          (Cons 3 (Cons 5 (Cons 8 Nil)))
+      (Cons
+          Nil
+        Nil)));
 
 sender : [Send (List Int)]Unit
-sender = sends! (fib!);
+sender = sends (fib!);
 
-length : (List X) -> Int
-length nil = 0;
-length (cons x xs) = plus! 1 (length! xs);
+length : (List x) -> Int
+length Nil = 0;
+length (Cons x xs) = plus 1 (length xs);
 
 main : [Abort](List Int)
-main = pipe! (sender!) (catter! (length! (fib!)));
+main = pipe (sender!) (catter!); {- (length! (fib!)));-}

@@ -1,35 +1,14 @@
-data Nat = zero : Nat
-         | suc : Nat -> Nat.
+data Unit = Unit : Unit.
 
-data List X = nil  : (List X)
-            | cons : X -> (List X) -> (List X).
+interface State x = get : x
+	          | put : x -> Unit.
 
-append : (List X) -> (List X) -> (List X)
-append nil         ys = ys;
-append (cons x xs) ys = cons x (append! xs ys);
+interface Receive x = receive : x.
 
-plus : Nat -> Nat -> Nat
-plus zero m = m;
-plus (suc n) m = suc (plus! n m);
-
-interface State X = get : X | put : S -> Unit.
-
-interface Receive X = receive : X.
-
-map : {A -> B} -> List A -> List B
-map f nil = nil;
-map f (cons x xs) = cons (f! x) (fmap! f xs);
-
-bind : X -> {X -> Y} -> Y
-bind x f = f! x;
-
-catter : [Receive (List X)](List X)
-catter = bind! (receive!) ({ nil -> nil | xs -> append! xs (catter!) });
-
-runState : X -> [State X]Y    -> Y
-runState   x    [put x' -> k] =  runState! x' (k! unit);
-runState   x    [get    -> k] =  runState! x  (k! x);
+runState : x -> [State x]y    -> y
+runState   x    [put x' -> k] =  runState x' (k Unit);
+runState   x    [get    -> k] =  runState x  (k x);
 runState   x          y       =  y;
 
 main : Bool
-main = runState! 3 (gt! (get!) 2);
+main = runState 3 (gt (get!) 2);

@@ -8,7 +8,6 @@
  ***********************************************************************
  *)
 
-open ParseTree
 open Show
 
 type prog = tld list
@@ -17,6 +16,14 @@ and tld =
   | Mtld_datatype of datatype_declaration
   | Mtld_effin of effect_interface
   | Mtld_handler of handler_definition
+
+and datatype_declaration = ParseTree.datatype_declaration
+
+and effect_interface = ParseTree.effect_interface
+
+and pattern = ParseTree.pattern
+
+and src_type = ParseTree.src_type
 
 and handler_definition =
   {
@@ -29,11 +36,7 @@ and handler_clause = pattern list * mid_ccomputation
 
 and mid_ccomputation =
   | Mccomp_cvalue of mid_cvalue
-  | Mccomp_clause of mid_comp_clause
-
-and mid_comp_clause =
-  | Mcomp_clauses of handler_clause list
-  | Mcomp_emp_clause
+  | Mccomp_clauses of handler_clause list
 
 and mid_cvalue =
   | Mcvalue_ivalue of mid_ivalue
@@ -48,7 +51,6 @@ and mid_ivalue =
   | Mivalue_icomp of mid_icomputation
 
 and mid_icomputation =
-  | Micomp_force of mid_ivalue
   | Micomp_app of mid_ivalue * mid_ccomputation list
 
 (** Show functions for the tree (see also ParseTree module) *)
@@ -61,8 +63,6 @@ module ShowMidHandler : SHOW with type t = handler_definition
 module ShowHdrClause : SHOW with type t = handler_clause
 
 module ShowMidCComp : SHOW with type t = mid_ccomputation
-
-module ShowMidCClause : SHOW with type t = mid_comp_clause
 
 module ShowMidCValue : SHOW with type t = mid_cvalue
 

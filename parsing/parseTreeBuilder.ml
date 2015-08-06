@@ -39,8 +39,6 @@ module CComputation = struct
   let clause pats comp = CComp_hdr_clause (pats, comp)
 
   let compose clauses = CComp_compose (clauses)
-
-  let empty = CComp_emp_clause
 end
 
 module CValue = struct
@@ -62,9 +60,7 @@ module IValue = struct
 end
 
 module IComp = struct
-  let forced_thunk thk = IComp_force thk
-
-  let app func args = IComp_app (func, args)
+  let app func ?(args = []) () = IComp_app (func, args)
 end
 
 module EffInterface = struct

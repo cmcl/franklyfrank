@@ -107,11 +107,10 @@ let refine_pat st pat =
 let rec translate_ccomp st cc =
   match cc with
   | CComp_cvalue cv -> Mccomp_cvalue (translate_cvalue st cv)
-  | _ -> Mccomp_clause (translate_clause st cc)
+  | _ -> translate_clause st cc
 
 and translate_icomp st ic =
   match ic with
-  | IComp_force iv -> Micomp_force (translate_ivalue st iv)
   | IComp_app (iv, cs) -> let iv' = translate_ivalue st iv in
 			  let cs' = List.map (translate_ccomp st) cs in
 			  Micomp_app (iv', cs')
@@ -157,13 +156,13 @@ and translate_hdr_cse st (ps, cc) =
 
 and translate_clause st cse =
   match cse with
-  | CComp_hdr_clause (ps, cc) -> Mcomp_clauses [translate_hdr_cse st (ps, cc)]
-  | CComp_emp_clause -> Mcomp_emp_clause
+  | CComp_hdr_clause (ps, cc)
+    -> Mccomp_clauses [translate_hdr_cse st (ps, cc)]
   | CComp_compose cs
     -> let f =
 	 function  CComp_hdr_clause (ps, cc) -> translate_hdr_cse st (ps, cc)
 	         |          _              -> invalid_clause_error st.def_name
-       in Mcomp_clauses (List.map f cs)
+       in Mccomp_clauses (List.map f cs)
   | _ -> invalid_clause_error st.def_name
 
 let translate_hdr st def =

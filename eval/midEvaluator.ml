@@ -262,22 +262,20 @@ module EvalComp : EVALCOMP = struct
   and eval_ccomp env cc =
     match cc with
     | Mccomp_cvalue cv -> eval_cvalue env cv
-    | Mccomp_clause cls
-      -> return (VMultiHandler (fun cs -> eval_mid_clause env cls cs))
+    | Mccomp_clauses [] -> command "NoClausesProbablyShouldNotGetHere" []
+    | Mccomp_clauses cls
+      -> return (VMultiHandler (fun cs -> eval_mid_clauses env cls cs))
 
-  and eval_mid_clause env cls cs =
-    match cls with
-    | Mcomp_clauses cls
-      -> anonhdr := !anonhdr + 1;
-	 let hdr =
-	   {
-	     mhdr_name = "AnonMH" ^ (string_of_int !anonhdr);
-	     mhdr_type =
-	       TypExp.var("AnonMH" ^ (string_of_int !anonhdr) ^ "T");
-	     mhdr_defs = cls
-	   }
-	 in eval_tlhdrs env hdr cs
-    | Mcomp_emp_clause -> command "NoClausesProbablyShouldNotGetHere" []
+  and eval_mid_clauses env cls cs =
+    anonhdr := !anonhdr + 1;
+    let hdr =
+      {
+	mhdr_name = "AnonMH" ^ (string_of_int !anonhdr);
+	mhdr_type =
+	  TypExp.var("AnonMH" ^ (string_of_int !anonhdr) ^ "T");
+	mhdr_defs = cls
+      }
+    in eval_tlhdrs env hdr cs
 
   and eval_cvalue env cv =
     match cv with
@@ -297,7 +295,6 @@ module EvalComp : EVALCOMP = struct
 
   and eval_icomp env ic =
     match ic with
-    | Micomp_force iv -> eval_app env iv []
     | Micomp_app (iv, cs) -> eval_app env iv cs
 
   and eval_app env u cs =

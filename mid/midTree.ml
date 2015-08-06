@@ -8,6 +8,14 @@ and tld =
   | Mtld_effin of effect_interface
   | Mtld_handler of handler_definition
 
+and datatype_declaration = ParseTree.datatype_declaration
+
+and effect_interface = ParseTree.effect_interface
+
+and pattern = ParseTree.pattern
+
+and src_type = ParseTree.src_type
+
 and handler_definition =
   {
     mhdr_name : string;
@@ -19,11 +27,7 @@ and handler_clause = pattern list * mid_ccomputation
 
 and mid_ccomputation =
   | Mccomp_cvalue of mid_cvalue
-  | Mccomp_clause of mid_comp_clause
-
-and mid_comp_clause =
-  | Mcomp_clauses of handler_clause list
-  | Mcomp_emp_clause
+  | Mccomp_clauses of handler_clause list
 
 and mid_cvalue =
   | Mcvalue_ivalue of mid_ivalue
@@ -38,7 +42,6 @@ and mid_ivalue =
   | Mivalue_icomp of mid_icomputation
 
 and mid_icomputation =
-  | Micomp_force of mid_ivalue
   | Micomp_app of mid_ivalue * mid_ccomputation list
 
 module rec ShowMidProg : SHOW
@@ -77,14 +80,7 @@ and ShowMidCComp : SHOW with type t = mid_ccomputation = struct
   type t = mid_ccomputation
   let show c = match c with
     | Mccomp_cvalue cv -> ShowMidCValue.show cv
-    | Mccomp_clause cse -> ShowMidCClause.show cse
-end
-
-and ShowMidCClause : SHOW with type t = mid_comp_clause = struct
-  type t = mid_comp_clause
-  let show cse = match cse with
-    | Mcomp_clauses cses -> ShowClauses.show cses
-    | Mcomp_emp_clause -> "()"
+    | Mccomp_clauses cses -> if cses = [] then "()" else ShowClauses.show cses
 end
 
 and ShowMidCValue : SHOW with type t = mid_cvalue = struct
@@ -109,7 +105,6 @@ end
 and ShowMidIComp : SHOW with type t = mid_icomputation = struct
   type t = mid_icomputation
   let show ic = match ic with
-    | Micomp_force iv -> (ShowMidIValue.show iv) ^ "!"
     | Micomp_app (iv, xs)
       -> "({-APP-}" ^ (ShowMidIValue.show iv) ^ "!" ^
            (string_of_args " " ShowMidCComp.show xs) ^ ")"
