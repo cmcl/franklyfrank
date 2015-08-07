@@ -4,3 +4,9 @@ let filter_map f xs =
                 | None -> xs
                 | Some x -> x :: xs in
   List.fold_right ff xs []
+
+let map = List.map
+
+let zip = List.combine
+
+let foldl = List.fold_left

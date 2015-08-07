@@ -8,3 +8,9 @@
 val filter_map : ('a -> 'b option) -> 'a list -> 'b list
  (** [filter_map f as]: Return the elements of [as] for which [f] returned
      a [Some b] for some [b]. In other words, discard the [None]s. *)
+
+val map : ('a -> 'b) -> 'a list -> 'b list
+
+val zip : 'a list -> 'b list -> ('a * 'b) list
+
+val foldl : ('a -> 'b -> 'a) -> 'a -> 'b list -> 'a
