@@ -107,10 +107,12 @@ and src_type =
 and src_type_desc =
   | Styp_var of string (* type variable *)
   | Styp_arrow of src_type * src_type
+  | Styp_bool (** Builtin *)
   | Styp_constr of string * src_type
   | Styp_comp of src_type list * src_type
   | Styp_ctr of string * src_type list
   | Styp_effin of string * src_type list
+  | Styp_int (** Builtin *)
   | Styp_ret of src_type list * src_type
   | Styp_thunk of src_type
 

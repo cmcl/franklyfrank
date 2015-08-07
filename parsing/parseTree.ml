@@ -99,13 +99,14 @@ and src_type =
 and src_type_desc =
   | Styp_var of string (* type variable *)
   | Styp_arrow of src_type * src_type
+  | Styp_bool (** Builtin *)
   | Styp_constr of string * src_type
   | Styp_comp of src_type list * src_type
   | Styp_ctr of string * src_type list
   | Styp_effin of string * src_type list
+  | Styp_int (** Builtin *)
   | Styp_ret of src_type list * src_type
   | Styp_thunk of src_type
-
 
 let string_of_args sep ?(bbegin = true) ?(endd = false) f xs = match xs with
   | [] -> ""
@@ -141,6 +142,7 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
   let rec show typ = match typ.styp_desc with
     | Styp_var v -> v
     | Styp_arrow (a, b) -> (show a) ^ " -> " ^ show b
+    | Styp_bool -> "Bool"
     | Styp_constr (k, v) -> k ^ " :\t" ^ (show v)
     | Styp_comp (args, res)
       -> (string_of_args " -> " ~bbegin:false ~endd:true show args) ^ show res
@@ -148,6 +150,7 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
       -> "(" ^ k ^ string_of_args " " show ts ^ ")"
     | Styp_effin (s, ts)
       -> s ^ " " ^ (String.concat " " (List.map show ts))
+    | Styp_int -> "Int" 
     | Styp_ret (effs, res)
       -> "[" ^ (String.concat ", " (List.map show effs)) ^ "]" ^ (show res)
     | Styp_thunk c -> "{" ^ show c ^ "}"
