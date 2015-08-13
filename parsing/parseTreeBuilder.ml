@@ -86,13 +86,19 @@ end
 module TypExp = struct
   let mk d = { styp_desc = d }
 
-  let var name = mk (Styp_var name)
-  let constr name typ_exp = mk (Styp_constr (name, typ_exp))
+  let rigid_tvar name = mk (Styp_rtvar name)
+  let flexi_tvar name = mk (Styp_ftvar name)
   let ctr name tes = mk (Styp_ctr (name, tes))
-  let effin name ?(params = []) () = mk (Styp_effin (name, params))
   let sus_comp typ_exp = mk (Styp_thunk typ_exp)
-  let comp args res = mk (Styp_comp (args,res))
+
+  let comp ?(args = []) res = mk (Styp_comp (args,res))
+
   let returner v ?(effs = []) () = mk (Styp_ret (effs,v))
+
+  let poly ts t = mk (Styp_poly (ts, t))
+
+  let effin name ?(params = []) () = mk (Styp_effin (name, params))
+
 end
 
 module ValueDefn = struct

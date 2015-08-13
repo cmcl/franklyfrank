@@ -6,27 +6,40 @@ exception TypeError of string
 
 module ENV = Map.Make(String)
 
+type effect_var = EVempty | EVone
+
+type effect_env = src_type list * effect_var  
+
+type env =
+  {
+    tenv : ENV.t; (** Type environment mapping variables to their types. *)
+    fenv : effect_env; (** Effect environment *)
+    cset : (src_type * src_type) list; (** Constraint set for unifying type
+					   variables. *)
+  }
+
 let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
 
 let rec type_prog prog =
-  let env = ENV.add "Bool" TypeExp.bool
+  let tenv = ENV.add "Bool" TypeExp.bool
     (ENV.add "Int" TypExp.int ENV.empty) in
+  let env = { tenv; fenv = ([], EVone); cset = [] } in
   let ts = List.map (type_tld env) prog in
   let hdrs = filter_map just_hdrs prog in
   match filter (fun (ts,h) -> h.mhdr_name = "main") (zip ts hdrs) with
   | [(t,_)] -> t
   | _
-    -> raise (TypeError ("There's only one main function... walking in a..."))
+    -> raise (TypeError ("There must exist a unique main function"))
 
-and type_tld d =
+and type_tld env d =
   match d with
   | Mtld_datatype dt -> type_datatype env dt
   | Mtld_effin    ei -> type_effect_interface env ei
   | Mtld_handler  h  -> type_hdr env h
 
-and type_datatype env dt = Styp_var(dt.sdt_name)
+and type_datatype env dt = TypExp.rigid_tvar(dt.sdt_name)
 
-and type_effect_interface env ei = Styp_var(ei.sei_name)
+and type_effect_interface env ei = TypExp.rigid_tvar(ei.sei_name)
 
 and type_hdr env h =
   let _ = type_clauses env h.mhdr_type h.mhdr_defs in
@@ -44,6 +57,7 @@ and type_ccomp env res cc =
   | Mccomp_clauses cls -> type_clauses env res cls
 
 and type_clauses env t cls =
+  (** This is wrong: no arrow type here *)
   let (args,res) = destruct_arrow_type t in foldl (type_clause args) res cls
 
 and type_clause args res (ps, cc) =
@@ -68,17 +82,30 @@ and destruct_arrow_type t =
 (** env |- res checks cv *)
 and type_cvalue env res cv =
   match cv with
-  | Mcvalue_ivalue iv   -> type_ivalue env res iv (** TODO: Add unification *)
-  | Mcvalue_ctr (k, vs) -> type_ctr env res k vs
+  | Mcvalue_ivalue iv
+    -> let t = type_ivalue env iv in
+       unify res t
+  | Mcvalue_ctr (k, vs), Styp_ctr (k', ts)
+    -> if k = k' then type_ctr env ts k vs
+       else raise (TypeError ("Expecting " ^ k' ^ " got " ^ k))
   | Mcvalue_thunk cc    -> type_ccomp env res cc (** TODO: Add
 						     coverage checking *)
-(** env |- res infers iv *)
-and type_ivalue env res iv =
-  match iv with
-  | Mivalue_var v -> type_var env res v
-  | Mivalue_sig s -> type_sig env res s
-  | Mivalue_int i -> TypExp.int
+and type_ctr env res k vs =
+  let env' = foldl (type_cvalue env) ENV.empty vs in
+  
 
+(** env |- iv infers (type_ivalue env iv) *)
+and type_ivalue env iv =
+  match iv with
+  | Mivalue_var v -> type_var env v
+  | Mivalue_sig s -> type_sig env s
+  | Mivalue_int _ -> TypExp.int
+  | Mivalue_bool _ -> TypExp.bool
+  | Mivalue_icomp ic -> type_icomp env ic
+
+and type_icomp env ic =
+  match ic with
+  | Micomp_app (iv, cs) ->
 
 and type_var env res v =
   try

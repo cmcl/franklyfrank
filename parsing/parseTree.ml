@@ -97,16 +97,23 @@ and src_type =
   }
 
 and src_type_desc =
-  | Styp_var of string (* type variable *)
-  | Styp_arrow of src_type * src_type
-  | Styp_bool (** Builtin *)
-  | Styp_constr of string * src_type
-  | Styp_comp of src_type list * src_type
+(* Values *)
   | Styp_ctr of string * src_type list
-  | Styp_effin of string * src_type list
-  | Styp_int (** Builtin *)
-  | Styp_ret of src_type list * src_type
   | Styp_thunk of src_type
+  | Styp_rtvar of string (* rigid (i.e. user generated) type variable *)
+  | Styp_ftvar of string (* flexible (i.e. unification generated) type
+			    variable *)
+(* Computations *)
+  | Styp_comp of src_type list * src_type
+(* Returners *)
+  | Styp_ret of src_type list * src_type
+(* Poly types *)
+  | Styp_poly of src_type list * src_type
+(* Effect interfaces *)
+  | Styp_effin of string * src_type list
+(* Builtin types *)
+  | Styp_bool
+  | Styp_int
 
 let string_of_args sep ?(bbegin = true) ?(endd = false) f xs = match xs with
   | [] -> ""
@@ -140,14 +147,15 @@ end
 module rec ShowSrcType : SHOW with type t = src_type = struct
   type t = src_type
   let rec show typ = match typ.styp_desc with
-    | Styp_var v -> v
-    | Styp_arrow (a, b) -> (show a) ^ " -> " ^ show b
+    | Styp_rtvar v -> v
+    | Styp_ftvar v -> v
     | Styp_bool -> "Bool"
-    | Styp_constr (k, v) -> k ^ " :\t" ^ (show v)
     | Styp_comp (args, res)
       -> (string_of_args " -> " ~bbegin:false ~endd:true show args) ^ show res
     | Styp_ctr (k, ts)
       -> "(" ^ k ^ string_of_args " " show ts ^ ")"
+    | Styp_poly (ts, t)
+      -> "forall " ^ string_of_args ", " show ts ^ "." ^ show t
     | Styp_effin (s, ts)
       -> s ^ " " ^ (String.concat " " (List.map show ts))
     | Styp_int -> "Int" 

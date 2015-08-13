@@ -105,16 +105,21 @@ and src_type =
   }
 
 and src_type_desc =
-  | Styp_var of string (* type variable *)
-  | Styp_arrow of src_type * src_type
-  | Styp_bool (** Builtin *)
-  | Styp_constr of string * src_type
-  | Styp_comp of src_type list * src_type
+(* Values *)
   | Styp_ctr of string * src_type list
-  | Styp_effin of string * src_type list
-  | Styp_int (** Builtin *)
-  | Styp_ret of src_type list * src_type
   | Styp_thunk of src_type
+  | Styp_rtvar of int (* rigid (i.e. user generated) type variable *)
+  | Styp_ftvar of int (* flexible (i.e. unification generated) type
+			 variable *)
+(* Computations *)
+  | Styp_comp of src_type list * src_type
+(* Returners *)
+  | Styp_ret of src_type list * src_type
+(* Effect interfaces *)
+  | Styp_effin of string * src_type list
+(* Builtin types *)
+  | Styp_bool
+  | Styp_int
 
 (** Show functions *)
 val string_of_args : string -> ?bbegin:bool -> ?endd:bool ->

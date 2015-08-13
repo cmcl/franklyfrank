@@ -147,7 +147,7 @@ opt_type_parameters:
   ;
 
 type_variable:
-  | ID       { TypExp.var $1 }
+  | ID       { TypExp.rigid_tvar $1 }
   ;
 
 effect_signatures:
@@ -229,12 +229,12 @@ datatype:
   ;
 
 computation_types:
-  | returner                               { $1 }
+  | returner                               { TypExp.comp $1 }
   | rargs = arrow_type
         { match rargs with
 	  | [] -> raise (SyntaxError ("Expecting function type"))
                   (* Impossible *)
-	  | res :: sgra -> TypExp.comp (List.rev sgra) res
+	  | res :: sgra -> TypExp.comp ~args:(List.rev sgra) res
 	}
   ;
 

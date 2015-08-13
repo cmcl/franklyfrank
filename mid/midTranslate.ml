@@ -1,8 +1,10 @@
 open MidTree
 open ParseTree
 open ParseTreeBuilder
+open MidTyping
 
 type mid_error =
+  | Merr_not_comp of string
   | Merr_inv_clause of string
   | Merr_inv_ctr of string
   | Merr_no_main of string
@@ -17,6 +19,12 @@ let invalid_clause_error def =
 let invalid_constructor k def =
   raise (Error (Merr_inv_ctr
 		  ("No such constructor " ^ k ^ " when parsing " ^ def)))
+
+let not_comp k =
+  raise (Error
+	   (Merr_not_comp
+	      (k ^ " does not have a computation type")))
+  
 
 let no_main () = raise (Error (Merr_no_main "No main function defined."))
 
@@ -170,6 +178,15 @@ let translate_hdr st def =
   let midcomp = translate_ccomp st def.vdef_comp in
   (rpat, midcomp)
 
+let translate_type' st t =
+  
+
+let translate_type st t =
+  match t with
+  | Styp_thunk (Styp_comp (args, res))
+    -> Styp_comp (map (translate_type' st) args, translate_type' st res)
+  | _ -> raise (TypeError ("Incorrect type for handler"))
+
 (** Functions to construct mid-level handlers of a program from
     the declaration and clause fragments. *)
 
@@ -181,7 +198,7 @@ let make_hdr st (defs, hs) d =
   let h =
     {
       mhdr_name = d.svdecl_name;
-      mhdr_type = d.svdecl_type;
+      mhdr_type = translate_type st d.svdecl_type;
       mhdr_defs = hdr_clauses
     }
   in (defs, h :: hs)
