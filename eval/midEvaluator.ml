@@ -13,10 +13,6 @@ open ParseTree
 open ParseTreeBuilder
 open Printf
 
-let type_variable_counter = ref 0
-let fresh_type_variable () =
-  incr type_variable_counter; !type_variable_counter
-
 module type EVALCOMP = sig
   include MONAD
 

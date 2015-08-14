@@ -14,8 +14,6 @@ type env =
   {
     tenv : ENV.t; (** Type environment mapping variables to their types. *)
     fenv : effect_env; (** Effect environment *)
-    cset : (src_type * src_type) list; (** Constraint set for unifying type
-					   variables. *)
   }
 
 let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
@@ -23,27 +21,69 @@ let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
 let rec type_prog prog =
   let tenv = ENV.add "Bool" TypeExp.bool
     (ENV.add "Int" TypExp.int ENV.empty) in
-  let env = { tenv; fenv = ([], EVone); cset = [] } in
-  let ts = List.map (type_tld env) prog in
-  let hdrs = filter_map just_hdrs prog in
-  match filter (fun (ts,h) -> h.mhdr_name = "main") (zip ts hdrs) with
-  | [(t,_)] -> t
-  | _
-    -> raise (TypeError ("There must exist a unique main function"))
+  let env = { tenv; fenv = ([], EVone) } in
+  let env = foldl type_tld env prog in
+  let env = type_hdrs env prog in
+  try ENV.find "main" env.tenv with
+  | Not_found -> raise (TypeError ("There must exist a unique main function"))
 
 and type_tld env d =
   match d with
   | Mtld_datatype dt -> type_datatype env dt
   | Mtld_effin    ei -> type_effect_interface env ei
-  | Mtld_handler  h  -> type_hdr env h
+  | Mtld_handler  h  -> add_hdr_type env h
 
-and type_datatype env dt = TypExp.rigid_tvar(dt.sdt_name)
+and type_datatype env dt = (* TODO: Make this do the correct thing *)
+  let name = dt.sdt_name in
+  { env with tenv = ENV.add name (fresh_rigid_type_variable name) env.tenv }
 
-and type_effect_interface env ei = TypExp.rigid_tvar(ei.sei_name)
+and type_effect_interface env ei = (* TODO: Make this do the correct thing *)
+  let name = ei.sei_name in
+  { env with tenv = ENV.add name (fresh_rigid_type_variable name) env.tenv }
 
-and type_hdr env h =
-  let _ = type_clauses env h.mhdr_type h.mhdr_defs in
-  h.mhdr_type
+and add_hdr_type env h =
+  let (_, t) = inst env h.mhdr_type in
+  {env with tenv = ENV.add h.mhdr_name t env.tenv }
+
+and inst' env t =
+  match t with
+  | Styp_ret (es, v)
+    -> let (env, es) = map_accum inst' env es in
+       let (env, v) = inst' env v in
+       env, Styp_ret (es, v)
+  | Styp_effin (e, ts)
+    -> let (env, e) = inst' env e in
+       let (env, ts) = map_accum inst' env ts in
+       env, Styp_effin (e, ts)
+  | Styp_rtvar v
+    -> try env, ENV.find v env.tenv with
+       | Not_found ->
+	 let point = Unionfind.fresh (Styp_ftvar v) in
+	 let uvar = Styp_ref point in
+	 let env = {env with tenv=ENV.add v uvar env.tenv} in
+	 env, uvar
+  | Styp_ctr (k, vs)
+    -> let (env, vs) = map_accum inst' env vs in
+       env, Styp_ctr (k, vs)
+  | Styp_thunk c -> let (env, c) = inst' env c in env, Styp_thunk c
+  | Styp_suscomp (ts, r)
+    -> let (env, ts) = map_accum inst' env ts in
+       let (env, r) = inst' env r in
+       Styp_suscomp (ts, r)
+
+and inst env t = (** Instantiate the type t *)
+  match t with
+  | Styp_thunk (Styp_comp (args, res))
+    -> let (env, args) = map_accum inst' env args in
+       let (env, res) = inst' env res in
+       env, Styp_thunk (Styp_comp (args, res))
+  | _ -> env, t (** Monotype *)
+
+and strvar v n = v ^ (string_of_int n)
+
+and type_hdrs env prog = foldl type_hdr env (filter_map just_hdrs prog)
+
+and type_hdr env h = type_clauses env h.mhdr_type h.mhdr_defs
 
 and type_pattern (arg, p) =
   (** TODO: Consult some enviornment to determine the type of p
@@ -56,9 +96,13 @@ and type_ccomp env res cc =
   | Mccomp_cvalue  cv  -> type_cvalue env res cv
   | Mccomp_clauses cls -> type_clauses env res cls
 
+and destruct_comp_type =
+  function Styp_thunk (Styp_comp (args, res)) -> (args, res)
+          |     _     -> raise (TypeError ("Incorrect handler type"))
+
 and type_clauses env t cls =
-  (** This is wrong: no arrow type here *)
-  let (args,res) = destruct_arrow_type t in foldl (type_clause args) res cls
+  let (args, res) = destruct_comp_type t in
+  foldl (type_clause args) res cls
 
 and type_clause args res (ps, cc) =
   try
@@ -71,13 +115,6 @@ and pat_matches args ps =
   foldl type_pattern ENV.empty (zip args ps)
 
 and type_pattern env (t, p) = raise (TypeError ("Pattern match fail"))
-
-and destruct_arrow_type t =
-  let rec f t rargs =
-    match t with
-    | Styp_arrow a b -> f b (a :: rargs)
-    | _ -> (List.rev rargs, t)
-  in f t []
 
 (** env |- res checks cv *)
 and type_cvalue env res cv =
@@ -92,12 +129,11 @@ and type_cvalue env res cv =
 						     coverage checking *)
 and type_ctr env res k vs =
   let env' = foldl (type_cvalue env) ENV.empty vs in
-  
 
 (** env |- iv infers (type_ivalue env iv) *)
 and type_ivalue env iv =
   match iv with
-  | Mivalue_var v -> type_var env v
+  | Mivalue_var v -> ENV.find v env.tenv
   | Mivalue_sig s -> type_sig env s
   | Mivalue_int _ -> TypExp.int
   | Mivalue_bool _ -> TypExp.bool

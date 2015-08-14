@@ -178,15 +178,6 @@ let translate_hdr st def =
   let midcomp = translate_ccomp st def.vdef_comp in
   (rpat, midcomp)
 
-let translate_type' st t =
-  
-
-let translate_type st t =
-  match t with
-  | Styp_thunk (Styp_comp (args, res))
-    -> Styp_comp (map (translate_type' st) args, translate_type' st res)
-  | _ -> raise (TypeError ("Incorrect type for handler"))
-
 (** Functions to construct mid-level handlers of a program from
     the declaration and clause fragments. *)
 

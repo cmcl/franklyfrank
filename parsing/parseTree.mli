@@ -108,9 +108,11 @@ and src_type_desc =
 (* Values *)
   | Styp_ctr of string * src_type list
   | Styp_thunk of src_type
-  | Styp_rtvar of int (* rigid (i.e. user generated) type variable *)
-  | Styp_ftvar of int (* flexible (i.e. unification generated) type
-			 variable *)
+  | Styp_rtvar of string (* rigid (i.e. user generated) type variable *)
+  | Styp_ftvar of string (* flexible (i.e. unification generated) type
+			    variable *)
+  | Styp_ref of (src_type_desc Unionfind.point)
+      (** Unification variable *)
 (* Computations *)
   | Styp_comp of src_type list * src_type
 (* Returners *)
