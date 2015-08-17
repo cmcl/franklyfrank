@@ -66,10 +66,14 @@ and inst' env t =
     -> let (env, vs) = map_accum inst' env vs in
        env, Styp_ctr (k, vs)
   | Styp_thunk c -> let (env, c) = inst' env c in env, Styp_thunk c
-  | Styp_suscomp (ts, r)
+  | Styp_comp (ts, r)
     -> let (env, ts) = map_accum inst' env ts in
        let (env, r) = inst' env r in
-       Styp_suscomp (ts, r)
+       Styp_comp (ts, r)
+  | Styp_ftvar _ (* Will never be outside a ref *)
+  | Styp_ref _
+  | Styp_bool
+  | Styp_int -> t
 
 and inst env t = (** Instantiate the type t *)
   match t with
@@ -83,12 +87,11 @@ and strvar v n = v ^ (string_of_int n)
 
 and type_hdrs env prog = foldl type_hdr env (filter_map just_hdrs prog)
 
-and type_hdr env h = type_clauses env h.mhdr_type h.mhdr_defs
-
-and type_pattern (arg, p) =
-  (** TODO: Consult some enviornment to determine the type of p
-      and compare to arg. *)
-  raise (TypeError "Expecting typeof(arg) got typeof(p)")
+and type_hdr env h =
+  let name = h.mhdr_name in 
+  let t = ENV.find name env.tenv in
+  try type_clauses env t h with
+  | TypeError msg -> raise (TypeError (msg ^ " in handler " ^ name))
 
 (** env |- res checks cc *)
 and type_ccomp env res cc =
@@ -101,20 +104,23 @@ and destruct_comp_type =
           |     _     -> raise (TypeError ("Incorrect handler type"))
 
 and type_clauses env t cls =
-  let (args, res) = destruct_comp_type t in
-  foldl (type_clause args) res cls
+  let (ts, r) = destruct_comp_type t in
+  foldl (type_clause env ts) r cls
 
-and type_clause args res (ps, cc) =
+and type_clause env ts r (ps, cc) =
   try
-    let env  = pat_matches args ps in
+    let env  = pat_matches env ts ps in
     type_ccomp env res cc
   with
-  | TypeError s -> Debug.print "%s...\n" s; exit(-1)
+  | TypeError s -> Debug.print "%s when checking patterns..." s; exit(-1)
 
-and pat_matches args ps =
-  foldl type_pattern ENV.empty (zip args ps)
+and pat_matches env args ps =
+  {env with tenv=foldl type_pattern env.tenv (zip args ps)}
 
-and type_pattern env (t, p) = raise (TypeError ("Pattern match fail"))
+and type_pattern env (t, p) =
+  (** TODO: Consult some enviornment to determine the type of p
+      and compare to arg. *)
+  raise (TypeError "Expecting typeof(arg) got typeof(p)")
 
 (** env |- res checks cv *)
 and type_cvalue env res cv =
