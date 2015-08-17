@@ -154,8 +154,6 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
       -> (string_of_args " -> " ~bbegin:false ~endd:true show args) ^ show res
     | Styp_ctr (k, ts)
       -> "(" ^ k ^ string_of_args " " show ts ^ ")"
-    | Styp_poly (ts, t)
-      -> "forall " ^ string_of_args ", " show ts ^ "." ^ show t
     | Styp_effin (s, ts)
       -> s ^ " " ^ (String.concat " " (List.map show ts))
     | Styp_int -> "Int" 
