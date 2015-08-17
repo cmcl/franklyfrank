@@ -224,8 +224,8 @@ value_type:
   ;
 
 datatype:
-  | UID                           { TypExp.ctr $1 [] }
-  | LPAREN UID value_type+ RPAREN { TypExp.ctr $2 $3 }
+  | UID                           { TypExp.datatype $1 [] }
+  | LPAREN UID value_type+ RPAREN { TypExp.datatype $2 $3 }
   ;
 
 computation_types:

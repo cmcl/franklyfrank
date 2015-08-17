@@ -98,7 +98,7 @@ and src_type =
 
 and src_type_desc =
 (* Values *)
-  | Styp_ctr of string * src_type list
+  | Styp_datatype of string * src_type list
   | Styp_thunk of src_type
   | Styp_rtvar of string (* rigid (i.e. user generated) type variable *)
   | Styp_ftvar of string (* flexible (i.e. unification generated) type
@@ -152,7 +152,7 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
     | Styp_bool -> "Bool"
     | Styp_comp (args, res)
       -> (string_of_args " -> " ~bbegin:false ~endd:true show args) ^ show res
-    | Styp_ctr (k, ts)
+    | Styp_datatype (k, ts)
       -> "(" ^ k ^ string_of_args " " show ts ^ ")"
     | Styp_effin (s, ts)
       -> s ^ " " ^ (String.concat " " (List.map show ts))

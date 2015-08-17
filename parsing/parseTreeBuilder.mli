@@ -87,7 +87,7 @@ module TypExp :
     (* Value type constructors *)
     val rigid_tvar : string -> src_type
     val flexi_tvar : string -> src_type
-    val ctr : string -> src_type list -> src_type
+    val datatype : string -> src_type list -> src_type
     val sus_comp : src_type -> src_type
 
     val comp : ?args:src_type list -> src_type -> src_type
@@ -95,9 +95,6 @@ module TypExp :
 
     val returner : src_type -> ?effs:src_type list -> unit -> src_type
     (** Construct a returner type *)
-
-    val poly : src_type list -> src_type -> src_type
-    (** Construct a polymorphic type. *)
 
     val effin : string -> ?params:src_type list -> unit -> src_type
     (** Construct an effect interface. *)

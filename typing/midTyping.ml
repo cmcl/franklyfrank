@@ -8,12 +8,16 @@ module ENV = Map.Make(String)
 
 type effect_var = EVempty | EVone
 
-type effect_env = src_type list * effect_var  
+type effect_env = src_type list * effect_var
+
+type datatype_env = ENV.t
 
 type env =
   {
     tenv : ENV.t; (** Type environment mapping variables to their types. *)
     fenv : effect_env; (** Effect environment *)
+    denv : datatype_env; (** Map datatypes to a pair consisting of parameters
+			     and a list of constructors. *)
   }
 
 let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
@@ -21,7 +25,7 @@ let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
 let rec type_prog prog =
   let tenv = ENV.add "Bool" TypeExp.bool
     (ENV.add "Int" TypExp.int ENV.empty) in
-  let env = { tenv; fenv = ([], EVone) } in
+  let env = { tenv; fenv = ([], EVone); denv=ENV.empty } in
   let env = foldl type_tld env prog in
   let env = type_hdrs env prog in
   try ENV.find "main" env.tenv with

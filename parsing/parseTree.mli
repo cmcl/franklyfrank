@@ -106,7 +106,7 @@ and src_type =
 
 and src_type_desc =
 (* Values *)
-  | Styp_ctr of string * src_type list (*?FIXME: DATATYPE NOT CONSTRUCTOR *)
+  | Styp_datatype of string * src_type list
   | Styp_thunk of src_type
   | Styp_rtvar of string (* rigid (i.e. user generated) type variable *)
   | Styp_ftvar of string (* flexible (i.e. unification generated) type
