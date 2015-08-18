@@ -20,6 +20,8 @@ type env =
 			     and a list of constructors. *)
   }
 
+let type_error msg = raise (TypeError msg)
+
 let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
 
 let rec type_prog prog =
@@ -28,7 +30,7 @@ let rec type_prog prog =
   let env = { tenv; fenv = ([], EVone); denv=ENV.empty } in
   let env = foldl type_tld env prog in
   try ENV.find "main" env.tenv with
-  | Not_found -> raise (TypeError ("There must exist a unique main function"))
+  | Not_found -> type_error ("There must exist a unique main function")
 
 and type_tld env d =
   match d with
@@ -42,6 +44,15 @@ and type_datatype env dt =
   let cs = map (inst_ctr env') dt.sdt_constructors in
   { env with denv = ENV.add name (ps, cs) env.denv }
 
+and find_ctr env k d =
+  let (_, cs) = try ENV.find d env.denv with
+                | Not_found -> type_error ("Undefined datatype " ^ d)
+  in
+  let ctr = try List.find (fun ctr -> ctr.sctr_name = k) cs with
+            | Not_found -> type_error ("No constructor named " ^ k ^
+					  " for datatype " ^ d) in
+  ctr
+
 and type_effect_interface env ei = (* TODO: Make this do the correct thing *)
   let name = ei.sei_name in
   { env with tenv = ENV.add name (fresh_rigid_type_variable name) env.tenv }
@@ -51,7 +62,7 @@ and type_hdr env h =
   let t = h.mhdr_type in
   let env = {env with tenv = ENV.add name t env.tenv} in
   try type_clauses env t h with
-  | TypeError msg -> raise (TypeError (msg ^ " in handler " ^ name))
+  | TypeError msg -> type_error (msg ^ " in handler " ^ name)
 
 (** Type variable instantiation procedures *)
 and inst_ctr env ctr =
@@ -60,9 +71,9 @@ and inst_ctr env ctr =
     | Styp_rtvar v
       -> begin
 	  try ENV.find v env.tenv with
-          | Not_found -> raise (TypeError ("Unrecognised type variable " ^ v ^
-					      " while checking constructor " ^
-					      ctr.sctr_name))
+          | Not_found -> type_error ("Unrecognised type variable " ^ v ^
+					" while checking constructor " ^
+					ctr.sctr_name)
          end
     | _ -> snd (inst_with f env t)
   in
@@ -114,7 +125,7 @@ and type_ccomp env res cc =
 
 and destruct_comp_type =
   function Styp_thunk (Styp_comp (args, res)) -> (args, res)
-          |     _     -> raise (TypeError ("Incorrect handler type"))
+          |     _     -> type_error ("Incorrect handler type")
 
 and type_clauses env t cls =
   let (ts, r) = destruct_comp_type t.styp_desc in
@@ -125,17 +136,73 @@ and type_clause env ts r (ps, cc) =
     let env = pat_matches env ts ps in
     type_ccomp env res cc
   with
-  | TypeError s -> Debug.print "%s when checking patterns..." s; exit(-1)
+  | TypeError s
+    -> type_error (Printf.sprintf "%s when checking patterns..." s)
 
-and pat_matches env args ps =
-  {env with tenv = foldl type_pattern env.tenv (zip args ps)}
+and pat_matches env ts ps =
+  {env with tenv = foldl type_pattern env (zip ts ps)}
+
+and pattern_error t p =
+  let fmt = "pattern %s does not match expected type %s" in
+  let msg = Printf.sprintf fmt (ShowPattern.show cp)
+    (ShowSrcType.show t) in
+  type_error msg
 
 and type_pattern env (t, p) =
-  (** TODO: Consult some enviornment to determine the type of p
-      and compare to arg. *)
-  raise (TypeError "Expecting typeof(arg) got typeof(p)")
+  match t.spat_desc, p with
+  | _, Spat_any -> tenv
+  | Spat_ret (es, v), Spat_thunk thk
+    -> { env with tenv = ENV.add thk (TypExp.sus_comp t) env.tenv }
+  | _, Spat_comp cp -> type_comp_pattern env (t, cp)
+(* Value patterns only match value types *)
+  | Styp_datatype _, Spat_value vp
+  | Styp_thunk _, Spat_value vp
+  | Styp_rtvar _, Spat_value vp
+  | Styp_bool, Spat_value vp
+  | Styp_int, Spat_value vp
+    -> type_value_pattern env (t, vp)
+  | _ , _ -> pattern_error t p
 
-(** env |- res checks cv *)
+and type_comp_pattern env (t, cp) =
+  match t.spat_desc, cp with
+  | Styp_ret (es, v), Scpat_request (c, vs, r)
+    -> let (ei, cmd) = try ENV.find c env.cenv with
+                       | Not_found -> type_error ("undefined command " ^ c) in
+       if is_handled ei es then
+	 let ts = cmd.ssig_args in
+	 if length ts = length vs then
+	   let env = foldl type_value_pattern env (zip ts vs) in
+	   (* TODO: effect set incorrect; need closed effect set not poly *)
+	   let c = TypExp.comp [TypExp.returner cmd.ssig_res ()] t in
+	   let sc = TypExp.sus_comp c in
+	   { env with tenv = ENV.add r sc env.tenv }
+	 else
+	   let fmt = "command %s of %s expects %d arguments, %d given" in
+	   let msg = Printf.sprintf fmt c ei (length ts) (length vs) in
+	   type_error msg
+       else
+	 let fmt = "effect interface %s of command %s not handled by %s" in
+	 let msg = Printf.sprintf fmt ei c (ShowSrcType.show t) in
+	 type_error msg
+  | _ , _ -> pattern_error t p
+
+and is_handled ei es =
+  let just_eis = function Styp_effin (ei, _) -> Some ei | _ -> None in
+  List.mem ei (filter_map just_eis es)
+
+and type_value_pattern env (t, vp) =
+  match t.spat_desc, vp with
+  | Styp_bool, Svpat_bool _
+  | Styp_int, Svpat_int _
+  | _, Svpat_any
+    -> env
+  | _, Svpat_var x -> { env with tenv = ENV.add x t env.tenv }
+  | Styp_datatype (d, ps), Svpat_ctr (k, vs)
+    -> let ctr = find_ctr env k d in
+       let () = validate_ctr_use ctr d vs in
+       let ts = ctr.sctr_args in
+       foldl type_value_pattern env (zip ts vs)
+
 and type_cvalue env res cv =
   match cv, res with
   | Mcvalue_ivalue iv, _
@@ -144,32 +211,26 @@ and type_cvalue env res cv =
   | Mcvalue_ctr (k, vs), Styp_datatype (d, ts) -> type_ctr env (k, vs) (d, ts)
   | Mcvalue_thunk cc, Styp_thunk c -> type_ccomp env c cc (** TODO: Add
 						     coverage checking *)
-  | _ , _ -> raise (TypeError ("Cannot check " ^ ShowMidCValue.show cv ^
-				  " against " ^ ShowSrcType.show res))
+  | _ , _ -> type_error ("Cannot check " ^ ShowMidCValue.show cv ^
+			    " against " ^ ShowSrcType.show res)
+
+and validate_ctr_use ctr d vs =
+  let k = ctr.sctr_name in
+  let ts = ctr.sctr_args in
+  if length ts != length vs then
+    let fmt = "constructor %s of %s expects %d arguments, %d given" in
+    let msg = Printf.sprintf fmt k d (length ts) (length vs) in
+    type_error msg
 
 and type_ctr env (k, vs) (d, ts) =
-  let (_, cs) = try ENV.find d env.denv with
-                | Not_found -> raise (TypeError ("Undefined datatype " ^ d))
-  in
-  let cs' = filter (fun ctr -> ctr.sctr_name = k) cs in
-  if length cs' == 1 then
-    let ctr = List.hd cs' in
-    let ts = ctr.sctr_args in
-    if length ts != length vs then
-      let fmt = "Constructor %s of %s expects %d arguments, %d given" in
-      let msg = Printf.sprintf fmt k d (length ts) (length vs) in
-      raise (TypeError msg)
-    else
-      (* The following map operation will blow up (raise a TypeError
-         exception) if we cannot unify the argument types with the provided
-         values. *)
-      let _ = map (fun (t, v) -> type_cvalue env t v) (zip ts vs) in
-      TypExp.datatype d ts (* Typechecked datatype *)
-  else if length cs' < 1 then
-    raise (TypeError ("No constructor named " ^ k ^ " for datatype " ^ d))
-  else
-    raise (TypeError ("Multiple constructors named " ^ k ^
-			 " for datatype " ^ d))
+  let ctr = find_ctr env k d in
+  let () = validate_ctr_use ctr d vs in
+  let ts = ctr.sctr_args in
+  (* The following map operation will blow up (raise a TypeError
+     exception) if we cannot unify the argument types with the provided
+     values. *)
+  let _ = map (fun (t, v) -> type_cvalue env t v) (zip ts vs) in
+  TypExp.datatype d ts (* Typechecked datatype *)
 
 (** env |- iv infers (type_ivalue env iv) *)
 and type_ivalue env iv =

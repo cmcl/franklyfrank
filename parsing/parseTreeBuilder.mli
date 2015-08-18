@@ -115,13 +115,17 @@ module Pattern :
     val vpat : value_pattern -> pattern
     val cpat : computation_pattern -> pattern
     val any : unit -> pattern
+      (** Unnamed thunk *)
+    val thunk : string -> pattern
+      (** Named thunk *)
 
+    val any_value : unit -> value_pattern
     val var : string -> value_pattern
     val integer : int -> value_pattern
     val boolean : bool -> value_pattern
     val ctr : string -> ?pats:value_pattern list -> unit ->
       value_pattern
+
     val request : string -> ?pats:value_pattern list -> string ->
       computation_pattern
-    val thunk : string -> computation_pattern
   end

@@ -126,7 +126,8 @@ pattern:
   | LPAREN pattern RPAREN             { $2 }
   | value_pattern                     { Pattern.vpat $1 }
   | LBRACKET comp_pattern RBRACKET    { Pattern.cpat $2 }
-  | UNDERSCORE                        { Pattern.any () }
+  | LBRACKET UNDERSCORE RBRACKET      { Pattern.any () }
+  | LBRACKET ID RBRACKET              { Pattern.thunk $1 }
   ;
 
 value_pattern:
@@ -135,12 +136,13 @@ value_pattern:
   | INTLIT                                { Pattern.integer $1 }
   | TRUE                                  { Pattern.boolean true }
   | FALSE                                 { Pattern.boolean false}
-  | LPAREN UID value_pattern+ RPAREN       { Pattern.ctr $2 ~pats:$3 () }
+  | LPAREN UID value_pattern+ RPAREN      { Pattern.ctr $2 ~pats:$3 () }
+  | UNDERSCORE                            { Pattern.any_value () }
   ;
 
 comp_pattern:
   | ID value_pattern* LARROW ID    { Pattern.request $1 ~pats:$2 $4 }
-  | ID BANG                        { Pattern.thunk $1 }
+  ;
 
 opt_type_parameters:
   | ps = list(value_type)      { ps }

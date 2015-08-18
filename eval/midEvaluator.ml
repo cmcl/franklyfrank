@@ -95,6 +95,7 @@ module EvalComp : EVALCOMP = struct
     | Some env ->
       begin
 	match v, p with
+	| _, Svpat_any -> Some env
 	| _, Svpat_var x -> if ENV.mem x env then None
                             else Some (ENV.add x (return v) env)
 	| VBool b, Svpat_bool b' -> if b = b' then Some env else None
@@ -135,6 +136,10 @@ module EvalComp : EVALCOMP = struct
       begin
 	match c, p.spat_desc with
 	| _ , Spat_any -> Some env
+	| _ , Spat_thunk thk ->
+	  (* Return a suspended computation that will just perform the inner
+	     computation when forced. *)
+	  Some (ENV.add thk (return (VMultiHandler (fun cs -> c))) env)
 	| Command (c', vs, r), Spat_comp cp
 	  -> match_command (c', vs, r) cp env
 	| Return v, Spat_value vp

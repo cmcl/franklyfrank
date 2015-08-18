@@ -114,16 +114,14 @@ module Pattern = struct
   let vpat vp = mk (Spat_value vp)
   let cpat cp = mk (Spat_comp cp)
   let any () = mk Spat_any
+  let thunk thk = mk (Spat_thunk thk)
 
+  let any_value () = Svpat_any
   let var name = Svpat_var name
-
   let integer n = Svpat_int n
-
   let boolean b = Svpat_bool b
-
   let ctr name ?(pats = []) () = Svpat_ctr (name, pats)
 
   let request name ?(pats = []) cont = Scpat_request (name, pats, cont)
 
-  let thunk thk = Scpat_thunk thk
 end

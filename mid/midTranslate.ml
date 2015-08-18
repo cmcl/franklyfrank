@@ -94,7 +94,7 @@ let rec refine_vpat st vp =
     -> if CtrSet.mem v st.cset then Svpat_ctr (v, []) else vp   
   | Svpat_ctr (k, ps)
     -> let ps' = List.map (refine_vpat st) ps in Svpat_ctr (k, ps')
-  | Svpat_int _ | Svpat_bool _ -> vp
+  | Svpat_any | Svpat_int _ | Svpat_bool _ -> vp
 
 let refine_cpat st cp =
   match cp with
@@ -108,7 +108,8 @@ let refine_pat st pat =
   match pat.spat_desc with
   | Spat_value vp -> Pattern.vpat(refine_vpat st vp)
   | Spat_comp cp -> Pattern.cpat(refine_cpat st cp)
-  | Spat_any -> pat
+  | Spat_any
+  | Spat_thunk _ -> pat
 
 (** Functions for translating the computation of a handler clause. *)
 

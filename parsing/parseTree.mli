@@ -45,13 +45,14 @@ and pattern =
 and pattern_desc =
   | Spat_value of value_pattern
   | Spat_comp of computation_pattern
-  | Spat_any
+  | Spat_any (* [_] *)
+  | Spat_thunk of string (* [t] for string t *)
 
 and computation_pattern =
   | Scpat_request of string * value_pattern list * string
-  | Scpat_thunk of string
 
 and value_pattern =
+  | Svpat_any (* _ *)
   | Svpat_var of string
   | Svpat_int of int
   | Svpat_bool of bool

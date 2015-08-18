@@ -37,13 +37,14 @@ and pattern =
 and pattern_desc =
   | Spat_value of value_pattern
   | Spat_comp of computation_pattern
-  | Spat_any
+  | Spat_any (* [_] *)
+  | Spat_thunk of string (* [t] for string t *)
 
 and computation_pattern =
   | Scpat_request of string * value_pattern list * string
-  | Scpat_thunk of string
 
 and value_pattern =
+  | Svpat_any (* _ *)
   | Svpat_var of string
   | Svpat_int of int
   | Svpat_bool of bool
@@ -127,7 +128,8 @@ module ShowPattern : SHOW with type t = pattern = struct
   let rec show p = match p.spat_desc with
     | Spat_comp cp -> cshow cp
     | Spat_value vp -> vshow vp 
-    | Spat_any -> "_"
+    | Spat_any -> "[_]"
+    | Spat_thunk thk -> "[" ^ thk ^ "]"
 
   and cshow cp =
     match cp with
@@ -137,6 +139,7 @@ module ShowPattern : SHOW with type t = pattern = struct
 
   and vshow vp =
     match vp with
+    | Svpat_any -> "_"
     | Svpat_var v -> v
     | Svpat_int n -> string_of_int n
     | Svpat_bool b -> string_of_bool b
