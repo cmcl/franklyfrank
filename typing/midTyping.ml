@@ -1,5 +1,6 @@
 open MidTree
 open ParseTree
+open ParseTreeBuilder
 open ListUtils
 
 exception TypeError of string
@@ -10,24 +11,31 @@ type effect_var = EVempty | EVone
 
 type effect_env = src_type list * effect_var
 
-type datatype_env = ENV.t
+type datatype_env = (src_type list * constructor_declaration list) ENV.t
+
+type interface_env = (src_type list * command_declaration list) ENV.t
 
 type env =
   {
-    tenv : ENV.t; (** Type environment mapping variables to their types. *)
-    fenv : effect_env; (** Effect environment *)
+    tenv : src_type ENV.t;
+    (** Type environment mapping variables to their types. *)
+    fenv : effect_env; (** Ambient effects *)
     denv : datatype_env; (** Map datatypes to a pair consisting of parameters
 			     and a list of constructors. *)
+    ienv : interface_env; (** Map effect interfaces to a pair consisting of
+			      their parameters and command declarations. *)
   }
 
 let type_error msg = raise (TypeError msg)
 
 let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
+let just_eis t =
+  match t.styp_desc with Styp_effin (ei, _) -> Some ei | _ -> None
 
 let rec type_prog prog =
-  let tenv = ENV.add "Bool" TypeExp.bool
-    (ENV.add "Int" TypExp.int ENV.empty) in
-  let env = { tenv; fenv = ([], EVone); denv=ENV.empty } in
+  let tenv = ENV.add "Bool" (TypExp.bool ())
+    (ENV.add "Int" (TypExp.int ()) ENV.empty) in
+  let env = { tenv; fenv = ([], EVone); denv=ENV.empty; ienv = ENV.empty } in
   let env = foldl type_tld env prog in
   try ENV.find "main" env.tenv with
   | Not_found -> type_error ("There must exist a unique main function")
@@ -40,8 +48,8 @@ and type_tld env d =
 
 and type_datatype env dt =
   let name = dt.sdt_name in
-  let (env', ps) = map_accum inst env dt.sdt_parameters in
-  let cs = map (inst_ctr env') dt.sdt_constructors in
+  let ps = dt.sdt_parameters in
+  let cs = dt.sdt_constructors in
   { env with denv = ENV.add name (ps, cs) env.denv }
 
 and find_ctr env k d =
@@ -53,42 +61,32 @@ and find_ctr env k d =
 					  " for datatype " ^ d) in
   ctr
 
-and type_effect_interface env ei = (* TODO: Make this do the correct thing *)
+and type_effect_interface env ei =
   let name = ei.sei_name in
-  { env with tenv = ENV.add name (fresh_rigid_type_variable name) env.tenv }
+  let ps = ei.sei_parameters in
+  let cs = ei.sei_commands in
+  { env with ienv = ENV.add name (ps, cs) env.ienv }
 
 and type_hdr env h =
   let name = h.mhdr_name in
   let t = h.mhdr_type in
   let env = {env with tenv = ENV.add name t env.tenv} in
-  try type_clauses env t h with
-  | TypeError msg -> type_error (msg ^ " in handler " ^ name)
+  let _ = try type_clauses env t h.mhdr_defs with
+          | TypeError msg -> type_error (msg ^ " in handler " ^ name) in
+  env
 
 (** Type variable instantiation procedures *)
-and inst_ctr env ctr =
-  let rec f env t =
-    match t with
-    | Styp_rtvar v
-      -> begin
-	  try ENV.find v env.tenv with
-          | Not_found -> type_error ("Unrecognised type variable " ^ v ^
-					" while checking constructor " ^
-					ctr.sctr_name)
-         end
-    | _ -> snd (inst_with f env t)
-  in
-  { ctr with sctr_args = map (f env) ctr.sctr_args;
-             sctr_res  = f env ctr.sctr_res; }
-
 and inst env t =
   match t.styp_desc with
   | Styp_rtvar v
-    -> try env, ENV.find v env.tenv with
-       | Not_found ->
-	 let point = Unionfind.fresh (Styp_ftvar v) in
-	 let uvar = { styp_desc = Styp_ref point } in
-	 let env = {env with tenv=ENV.add v uvar env.tenv} in
-	 env, uvar
+    -> begin
+         try env, ENV.find v env.tenv with
+	 | Not_found ->
+	   let point = Unionfind.fresh (Styp_ftvar v) in
+	   let uvar = { styp_desc = Styp_ref point } in
+	   let env = {env with tenv=ENV.add v uvar env.tenv} in
+	   env, uvar
+       end
   | _ -> inst_with inst env t
 
 and inst_with f env t =
@@ -98,10 +96,9 @@ and inst_with f env t =
        let (env, v) = inst_with f env v in
        env, TypExp.returner v ~effs:es ()
   | Styp_effin (e, ts)
-    -> let (env, e) = inst_with f env e (*TODO: do the right thing here *) in
-       let (env, ts) = map_accum (inst_with f) env ts in
+    -> let (env, ts) = map_accum (inst_with f) env ts in
        env, TypExp.effin e ~params:ts ()
-  | Styp_rtvar v -> f t
+  | Styp_rtvar v -> f env t
   | Styp_datatype (k, vs)
     -> let (env, vs) = map_accum (inst_with f) env vs in
        env, TypExp.datatype k vs
@@ -123,35 +120,35 @@ and type_ccomp env res cc =
   | Mccomp_cvalue  cv  -> type_cvalue env res cv
   | Mccomp_clauses cls -> type_clauses env res cls
 
-and destruct_comp_type =
-  function Styp_thunk (Styp_comp (args, res)) -> (args, res)
-          |     _     -> type_error ("Incorrect handler type")
+and destruct_comp_type t =
+  match t.styp_desc with
+  | Styp_thunk thk -> destruct_comp_type thk
+  | Styp_comp (args, res) -> (args, res)
+  |        _     -> type_error ("Incorrect handler type")
 
 and type_clauses env t cls =
-  let (ts, r) = destruct_comp_type t.styp_desc in
+  let (ts, r) = destruct_comp_type t in
   foldl (type_clause env ts) r cls
 
 and type_clause env ts r (ps, cc) =
   try
     let env = pat_matches env ts ps in
-    type_ccomp env res cc
+    type_ccomp env r cc
   with
   | TypeError s
     -> type_error (Printf.sprintf "%s when checking patterns..." s)
 
-and pat_matches env ts ps =
-  {env with tenv = foldl type_pattern env (zip ts ps)}
+and pat_matches env ts ps = foldl type_pattern env (zip ts ps)
 
 and pattern_error t p =
-  let fmt = "pattern %s does not match expected type %s" in
-  let msg = Printf.sprintf fmt (ShowPattern.show cp)
-    (ShowSrcType.show t) in
+  let msg = Printf.sprintf "pattern %s does not match expected type %s"
+    (ShowPattern.show p) (ShowSrcType.show t) in
   type_error msg
 
 and type_pattern env (t, p) =
-  match t.spat_desc, p with
-  | _, Spat_any -> tenv
-  | Spat_ret (es, v), Spat_thunk thk
+  match t.styp_desc, p.spat_desc with
+  | _, Spat_any -> env
+  | Styp_ret (es, v), Spat_thunk thk
     -> { env with tenv = ENV.add thk (TypExp.sus_comp t) env.tenv }
   | _, Spat_comp cp -> type_comp_pattern env (t, cp)
 (* Value patterns only match value types *)
@@ -164,34 +161,45 @@ and type_pattern env (t, p) =
   | _ , _ -> pattern_error t p
 
 and type_comp_pattern env (t, cp) =
-  match t.spat_desc, cp with
+  match t.styp_desc, cp with
   | Styp_ret (es, v), Scpat_request (c, vs, r)
-    -> let (ei, cmd) = try ENV.find c env.cenv with
-                       | Not_found -> type_error ("undefined command " ^ c) in
-       if is_handled ei es then
-	 let ts = cmd.ssig_args in
-	 if length ts = length vs then
-	   let env = foldl type_value_pattern env (zip ts vs) in
-	   (* TODO: effect set incorrect; need closed effect set not poly *)
-	   let c = TypExp.comp [TypExp.returner cmd.ssig_res ()] t in
-	   let sc = TypExp.sus_comp c in
-	   { env with tenv = ENV.add r sc env.tenv }
-	 else
-	   let fmt = "command %s of %s expects %d arguments, %d given" in
-	   let msg = Printf.sprintf fmt c ei (length ts) (length vs) in
-	   type_error msg
+    -> let es = filter_map just_eis es in
+       let es = map (fun ei -> (ei, ENV.find ei env.ienv)) es in
+       let msg = Printf.sprintf "command %s not handled by %s" c
+	 (ShowSrcType.show t) in
+       let (ei, cmd) = find_cmd c es msg in
+       let ts = cmd.scmd_args in
+       if length ts = length vs then
+	 let env = foldl type_value_pattern env (zip ts vs) in
+	 (* TODO: effect set incorrect; need closed effect set not poly *)
+	 let c = TypExp.comp ~args:[TypExp.returner cmd.scmd_res ()] t in
+	 let sc = TypExp.sus_comp c in
+	 { env with tenv = ENV.add r sc env.tenv }
        else
-	 let fmt = "effect interface %s of command %s not handled by %s" in
-	 let msg = Printf.sprintf fmt ei c (ShowSrcType.show t) in
+	 let msg = Printf.sprintf
+	   "command %s of %s expects %d arguments, %d given" c ei (length ts)
+	   (length vs) in
 	 type_error msg
-  | _ , _ -> pattern_error t p
+  | _ , _ -> pattern_error t (Pattern.cpat cp)
 
-and is_handled ei es =
-  let just_eis = function Styp_effin (ei, _) -> Some ei | _ -> None in
-  List.mem ei (filter_map just_eis es)
+and find_cmd c es msg =
+  match foldl (is_handled c) None es with
+  | Some x -> x
+  | None -> type_error msg
+
+and is_handled c acc (ei, (_, cmds)) =
+  match acc with
+  | Some x -> acc (* Exit after first find: effect shadowing semantics *)
+  | None -> begin
+              try
+		let cmd = List.find (fun cmd -> cmd.scmd_name = c) cmds in
+		Some (ei, cmd)
+	      with
+	      | Not_found -> None
+            end
 
 and type_value_pattern env (t, vp) =
-  match t.spat_desc, vp with
+  match t.styp_desc, vp with
   | Styp_bool, Svpat_bool _
   | Styp_int, Svpat_int _
   | _, Svpat_any
@@ -199,12 +207,13 @@ and type_value_pattern env (t, vp) =
   | _, Svpat_var x -> { env with tenv = ENV.add x t env.tenv }
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
     -> let ctr = find_ctr env k d in
-       let () = validate_ctr_use ctr d vs in
+       let () = validate_ctr_use ctr d (length vs) in
        let ts = ctr.sctr_args in
        foldl type_value_pattern env (zip ts vs)
+  | _ , _ -> pattern_error t (Pattern.vpat vp) (* Shouldn't happen *)
 
 and type_cvalue env res cv =
-  match cv, res with
+  match cv, res.styp_desc with
   | Mcvalue_ivalue iv, _
     -> let t = type_ivalue env iv in
        unify env res t
@@ -214,17 +223,17 @@ and type_cvalue env res cv =
   | _ , _ -> type_error ("Cannot check " ^ ShowMidCValue.show cv ^
 			    " against " ^ ShowSrcType.show res)
 
-and validate_ctr_use ctr d vs =
+and validate_ctr_use ctr d n =
   let k = ctr.sctr_name in
   let ts = ctr.sctr_args in
-  if length ts != length vs then
-    let fmt = "constructor %s of %s expects %d arguments, %d given" in
-    let msg = Printf.sprintf fmt k d (length ts) (length vs) in
-    type_error msg
+  if length ts != n then
+    let msg = Printf.sprintf
+      "constructor %s of %s expects %d arguments, %d given" k d (length ts) n
+    in type_error msg
 
 and type_ctr env (k, vs) (d, ts) =
   let ctr = find_ctr env k d in
-  let () = validate_ctr_use ctr d vs in
+  let () = validate_ctr_use ctr d (length vs) in
   let ts = ctr.sctr_args in
   (* The following map operation will blow up (raise a TypeError
      exception) if we cannot unify the argument types with the provided
@@ -236,22 +245,39 @@ and type_ctr env (k, vs) (d, ts) =
 and type_ivalue env iv =
   match iv with
   | Mivalue_var v -> ENV.find v env.tenv
-  | Mivalue_sig s -> type_sig env s
-  | Mivalue_int _ -> TypExp.int
-  | Mivalue_bool _ -> TypExp.bool
-  | Mivalue_icomp ic -> type_icomp env ic
+  | Mivalue_cmd c -> type_cmd env c
+  | Mivalue_int _ -> TypExp.int ()
+  | Mivalue_bool _ -> TypExp.bool ()
+  | Mivalue_icomp ic
+    -> let t = type_icomp env ic in
+       begin (* Check the ambient effects agrees with returner type. *)
+	 match t.styp_desc with
+	 | Styp_ret (es, v)
+	   -> v (* TODO: Compare es with fst (env.fenv) *) 
+	 | _ -> let msg = Printf.sprintf
+		  "Expected returner type but type was %s"
+		  (ShowSrcType.show t) in
+		type_error msg
+       end
 
-and type_var env res v =
-  try (* TODO: Implement equality *)
-    if ENV.find v env = res then res
-    else raise (TypeError ("var type mismatch"))
-  with
-  | Not_found -> raise (TypeError ("No such var " ^ v))
-
-and type_sig env res v = (* TODO: Something sensible here *)
+and type_cmd env c =
+  let es = fst env.fenv in
+  let eis = filter_map just_eis es in
+  let eis = map (fun ei -> ENV.find ei env.ienv) eis in
+  let msg = Printf.sprintf "command %s not handled by ambient effects" c in
+  let (ei, cmd) = find_cmd c es msg in
+  let ts = (map (fun t -> TypExp.returner t ()) cmd.scmd_args) in
+  let r = TypExp.returner cmd.scmd_res ~effs:es in
+  let c = TypExp.comp ~args:ts r in
+  let sc = TypExp.sus_comp c in
+  sc
 
 and type_icomp env ic =
   match ic with
-  | Micomp_app (iv, cs) -> (* TODO: An actual thing *)
+  | Micomp_app (iv, cs)
+    -> let t = type_ivalue env iv in
+       let (ts, r) = destruct_comp_type t in
+       let _ = map (fun (t, c) -> type_ccomp env t c) (zip ts cs) in
+       r
 
-and unify env x y = (* TODO: perform unification *)
+and unify env x y = TypExp.int () (* TODO: perform unification *)

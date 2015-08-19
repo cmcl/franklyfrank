@@ -38,8 +38,8 @@ term:
   | DATA UID opt_type_parameters EQUAL opt_constructor_decls DOT
       { Datatype.mk $2 ~params:$3 ~ctrs:$5 () |> Term.datatype }
   | ID COLON top_level_value_type { ValueDecl.mk $1 $3 |> Term.value_decl }
-  | INTERFACE ident opt_type_parameters EQUAL effect_signatures DOT
-      { EffInterface.mk $2 ~params:$3 ~sigs:$5 () |> Term.effect_in }
+  | INTERFACE ident opt_type_parameters EQUAL effect_commands DOT
+      { EffInterface.mk $2 ~params:$3 ~cmds:$5 () |> Term.effect_in }
   | ID pattern* EQUAL checkable_computation SEMI
       { ValueDefn.mk $1 ~pats:$2 $4 |> Term.value_defn }
   ;
@@ -127,7 +127,7 @@ pattern:
   | value_pattern                     { Pattern.vpat $1 }
   | LBRACKET comp_pattern RBRACKET    { Pattern.cpat $2 }
   | LBRACKET UNDERSCORE RBRACKET      { Pattern.any () }
-  | LBRACKET ID RBRACKET              { Pattern.thunk $1 }
+  | LBRACKET ID RBRACKET              { Pattern.thunk $2 }
   ;
 
 value_pattern:
@@ -135,7 +135,7 @@ value_pattern:
   | UID                                   { Pattern.ctr $1 () }
   | INTLIT                                { Pattern.integer $1 }
   | TRUE                                  { Pattern.boolean true }
-  | FALSE                                 { Pattern.boolean false}
+  | FALSE                                 { Pattern.boolean false }
   | LPAREN UID value_pattern+ RPAREN      { Pattern.ctr $2 ~pats:$3 () }
   | UNDERSCORE                            { Pattern.any_value () }
   ;
@@ -152,34 +152,34 @@ type_variable:
   | ID       { TypExp.rigid_tvar $1 }
   ;
 
-effect_signatures:
-  | effect_signature                       { [$1] }
-  | bar_effect_signature                   { [$1] }
-  | effect_signatures bar_effect_signature { $2 :: $1 }
+effect_commands:
+  | effect_command                       { [$1] }
+  | bar_effect_command                   { [$1] }
+  | effect_commands bar_effect_command { $2 :: $1 }
   ;
 
-effect_signature:
-  | ID COLON rargs = sig_args
+effect_command:
+  | ID COLON rargs = cmd_args
       { match rargs with
 	| []
-	  -> raise (SyntaxError ("Expecting signature type"))
+	  -> raise (SyntaxError ("Expecting command type"))
 	     (* Will never happen! *)
-	| res :: sgra -> EffInterface.sig_decl $1 ~args:(List.rev sgra) res }
+	| res :: sgra -> EffInterface.cmd_decl $1 ~args:(List.rev sgra) res }
 
   ;
 
-sig_args:
-  | sig_arg                                { [$1] }
-  | sig_args LARROW sig_arg                { $3 :: $1 }
+cmd_args:
+  | cmd_arg                                { [$1] }
+  | cmd_args LARROW cmd_arg                { $3 :: $1 }
   ;
 
-sig_arg:
+cmd_arg:
   | type_variable                          { $1 }
   | datatype                               { $1 }
   ;
 
-bar_effect_signature:
-  | BAR effect_signature                   { $2 }
+bar_effect_command:
+  | BAR effect_command                   { $2 }
   ;
 
 opt_constructor_decls:

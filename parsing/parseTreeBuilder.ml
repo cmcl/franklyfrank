@@ -64,18 +64,18 @@ module IComp = struct
 end
 
 module EffInterface = struct
-  let mk name ?(params = []) ?(sigs = []) () =
+  let mk name ?(params = []) ?(cmds = []) () =
     {
       sei_name = name;
       sei_parameters = params;
-      sei_signatures = sigs
+      sei_commands = cmds
     }
 
-  let sig_decl name ?(args = []) res =
+  let cmd_decl name ?(args = []) res =
     {
-      ssig_name = name;
-      ssig_args = args;
-      ssig_res = res
+      scmd_name = name;
+      scmd_args = args;
+      scmd_res = res
     }
   end
 
@@ -97,6 +97,8 @@ module TypExp = struct
 
   let effin name ?(params = []) () = mk (Styp_effin (name, params))
 
+  let bool () = mk (Styp_bool)
+  let int () = mk (Styp_int)
 end
 
 module ValueDefn = struct

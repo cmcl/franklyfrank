@@ -11,6 +11,8 @@ let zip = List.combine
 
 let foldl = List.fold_left
 
+let length = List.length
+
 (** Haskell has a better implementation: Combination of State monad
     and Traversable functor. TODO: Investigate such a generalisation. *)
 let rec map_accum f a xs =

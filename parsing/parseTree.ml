@@ -76,14 +76,14 @@ and effect_interface =
   {
     sei_name : string;
     sei_parameters: src_type list;
-    sei_signatures : signature_declaration list
+    sei_commands : command_declaration list
   }
 
-and signature_declaration =
+and command_declaration =
   {
-    ssig_name : string;
-    ssig_args : src_type list;
-    ssig_res : src_type
+    scmd_name : string;
+    scmd_args : src_type list;
+    scmd_res : src_type
   }
 
 and value_declaration =
@@ -104,12 +104,12 @@ and src_type_desc =
   | Styp_rtvar of string (* rigid (i.e. user generated) type variable *)
   | Styp_ftvar of string (* flexible (i.e. unification generated) type
 			    variable *)
+  | Styp_ref of (src_type_desc Unionfind.point)
+      (** Unification variable *)
 (* Computations *)
   | Styp_comp of src_type list * src_type
 (* Returners *)
   | Styp_ret of src_type list * src_type
-(* Poly types *)
-  | Styp_poly of src_type list * src_type
 (* Effect interfaces *)
   | Styp_effin of string * src_type list
 (* Builtin types *)
@@ -135,7 +135,6 @@ module ShowPattern : SHOW with type t = pattern = struct
     match cp with
     | Scpat_request (c, ps, k)
       -> "[" ^ c ^ (string_of_args " " vshow ps) ^ " -> " ^ k ^ "]"
-    | Scpat_thunk x -> x ^ "!"
 
   and vshow vp =
     match vp with
@@ -163,6 +162,7 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
     | Styp_ret (effs, res)
       -> "[" ^ (String.concat ", " (List.map show effs)) ^ "]" ^ (show res)
     | Styp_thunk c -> "{" ^ show c ^ "}"
+    | Styp_ref _ -> "REF"
 end
 
 and ShowDatatype : SHOW with type t = datatype_declaration = struct
@@ -191,16 +191,16 @@ and ShowEffin : SHOW with type t = effect_interface = struct
     "interface " ^ ei.sei_name ^ " " ^
       (String.concat " " (List.map ShowSrcType.show ei.sei_parameters)) ^
       " = " ^
-      (String.concat "\n\t| " (List.map ShowSig.show ei.sei_signatures)) ^
+      (String.concat "\n\t| " (List.map ShowCmd.show ei.sei_commands)) ^
       "\n"
 end
 
-and ShowSig : SHOW with type t = signature_declaration = struct
-  type t = signature_declaration
-  let show si =
-    si.ssig_name ^ " : " ^ 
-      (match si.ssig_args with
+and ShowCmd : SHOW with type t = command_declaration = struct
+  type t = command_declaration
+  let show cmd =
+    cmd.scmd_name ^ " : " ^ 
+      (match cmd.scmd_args with
       | [] -> ""
       | xs -> (String.concat " -> " (List.map ShowSrcType.show xs)) ^ " -> ")
-    ^ (ShowSrcType.show si.ssig_res)
+    ^ (ShowSrcType.show cmd.scmd_res)
 end

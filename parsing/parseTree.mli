@@ -28,7 +28,7 @@ and checkable_value =
 
 and inferable_value =
   | IValue_ident of string
-      (** Could be a monovar, polyvar or effect signature. *)
+      (** Could be a monovar, polyvar or command. *)
   | IValue_int of int
   | IValue_bool of bool
   (** Int/Bool literals *)
@@ -84,14 +84,14 @@ and effect_interface =
   {
     sei_name : string;
     sei_parameters: src_type list;
-    sei_signatures : signature_declaration list
+    sei_commands : command_declaration list
   }
 
-and signature_declaration =
+and command_declaration =
   {
-    ssig_name : string;
-    ssig_args : src_type list;
-    ssig_res : src_type
+    scmd_name : string;
+    scmd_args : src_type list;
+    scmd_res : src_type
   }
 
 and value_declaration =

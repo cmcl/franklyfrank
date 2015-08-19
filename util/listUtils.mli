@@ -15,6 +15,8 @@ val zip : 'a list -> 'b list -> ('a * 'b) list
 
 val foldl : ('a -> 'b -> 'a) -> 'a -> 'b list -> 'a
 
+val length : 'a list -> int
+
 val map_accum : ('a -> 'b -> 'a * 'c) -> 'a -> 'b list -> 'a * 'c list
   (** Traverse the list accumulating a result as the first element of
       a pair and the resulting list as the second element. *)

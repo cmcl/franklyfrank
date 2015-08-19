@@ -55,7 +55,7 @@ module CtrSet = struct
   let mem = M.mem
 end
 
-module SigSet = struct
+module CmdSet = struct
   module M = Set.Make(String)
   type t = M.t
   let empty = M.empty
@@ -65,8 +65,8 @@ end
 type prog_state =
   {
     mutable def_name : string;
-    cset : CtrSet.t;
-    sset : SigSet.t
+    ctrs : CtrSet.t;
+    cmds : CmdSet.t
   }
 
 let just_datatype = function Sterm_datatype dt -> Some dt | _ -> None
@@ -83,7 +83,7 @@ let partition prog =
 
 let add_ctr set ctr = CtrSet.M.add ctr.sctr_name set
 
-let add_sig set si = SigSet.M.add si.ssig_name set
+let add_cmd set cmd = CmdSet.M.add cmd.scmd_name set
 
 let add_def map def = HandlerMap.add def.mhdr_name def map
 
@@ -91,7 +91,7 @@ let add_def map def = HandlerMap.add def.mhdr_name def map
 let rec refine_vpat st vp =
   match vp with
   | Svpat_var v (** Probe constructor environment; return ctr if found. *)
-    -> if CtrSet.mem v st.cset then Svpat_ctr (v, []) else vp   
+    -> if CtrSet.mem v st.ctrs then Svpat_ctr (v, []) else vp   
   | Svpat_ctr (k, ps)
     -> let ps' = List.map (refine_vpat st) ps in Svpat_ctr (k, ps')
   | Svpat_any | Svpat_int _ | Svpat_bool _ -> vp
@@ -127,8 +127,8 @@ and translate_icomp st ic =
 and translate_ivalue st iv =
   match iv with
   | IValue_ident v
-    -> if SigSet.mem v st.sset then
-	Mivalue_sig v
+    -> if CmdSet.mem v st.cmds then
+	Mivalue_cmd v
       else
 	Mivalue_var v
   | IValue_int n -> Mivalue_int n
@@ -138,7 +138,7 @@ and translate_ivalue st iv =
 
 and tryn_make_constructor st iv =
   match iv with
-  | IValue_ident v -> if CtrSet.mem v st.cset then Some (Mcvalue_ctr (v, []))
+  | IValue_ident v -> if CtrSet.mem v st.ctrs then Some (Mcvalue_ctr (v, []))
                       else None
   | _ -> None
 
@@ -151,7 +151,7 @@ and translate_cvalue st cv =
 	| None -> Mcvalue_ivalue (translate_ivalue st iv)
        end
   | CValue_ctr (k, vs)
-    -> if CtrSet.mem k st.cset then
+    -> if CtrSet.mem k st.ctrs then
 	Mcvalue_ctr (k, List.map (translate_cvalue st) vs)
        else
 	invalid_constructor k st.def_name
@@ -190,7 +190,7 @@ let make_hdr st (defs, hs) d =
   let h =
     {
       mhdr_name = d.svdecl_name;
-      mhdr_type = translate_type st d.svdecl_type;
+      mhdr_type = d.svdecl_type;
       mhdr_defs = hdr_clauses
     }
   in (defs, h :: hs)
@@ -217,13 +217,13 @@ let merge dts eis hmap =
 let translate prog =
   let (dts, eis, decls, defs) = partition prog in
   let ctrs = List.flatten (List.map (fun dt -> dt.sdt_constructors) dts) in
-  let sigs = List.flatten (List.map (fun ei -> ei.sei_signatures) eis) in
-  let cset = List.fold_left add_ctr CtrSet.empty ctrs in
-  let sset = List.fold_left add_sig SigSet.empty sigs in
-  let state = { def_name = ""; cset; sset } in
+  let cmds = List.flatten (List.map (fun ei -> ei.sei_commands) eis) in
+  let ctrs = List.fold_left add_ctr CtrSet.empty ctrs in
+  let cmds = List.fold_left add_cmd CmdSet.empty cmds in
+  let state = { def_name = ""; ctrs; cmds } in
   let defs = make_hdr_defs state decls defs in
   let hmap = List.fold_left add_def HandlerMap.empty defs in
   if HandlerMap.mem "main" hmap then
     let mtree = merge dts eis hmap in
-    (mtree, hmap, cset, sset)
+    (mtree, hmap, ctrs, cmds)
   else no_main ()

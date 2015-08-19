@@ -38,10 +38,10 @@ module HandlerMap : HMS
 module CtrSet : NS
 (** Store for identifiers representing constructors. *)
 
-module SigSet : NS
-(** Store for identifiers representing signatures of effect interfaces. *)
+module CmdSet : NS
+(** Store for identifiers representing commands of effect interfaces. *)
 
 val translate : ParseTree.prog ->
-  MidTree.prog * HandlerMap.mt * CtrSet.t * SigSet.t
+  MidTree.prog * HandlerMap.mt * CtrSet.t * CmdSet.t
 (** Process the parse tree and return the mid-level tree and its associated
     mappings for global names (handlers), constructors and commands. *)

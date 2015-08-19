@@ -32,7 +32,7 @@ let translate_with_error prog =
 
 let rec parse_file lexbuf =
   match parse_with_error lexbuf with
-  | [] -> ([], HandlerMap.empty, CtrSet.empty, SigSet.empty)
+  | [] -> ([], HandlerMap.empty, CtrSet.empty, CmdSet.empty)
   | prog -> translate_with_error prog
 
 let loop filename =
@@ -41,7 +41,7 @@ let loop filename =
   let () = lexbuf.lex_curr_p <- {
     lexbuf.lex_curr_p with pos_fname = filename
   } in
-  let (mtree, hmap, cset, sset) = parse_file lexbuf in
+  let (mtree, hmap, ctrs, cmds) = parse_file lexbuf in
   Debug.debug_flag true;
   Debug.print "%s" (ShowMidProg.show mtree);
   let res = EvalComp.eval hmap mtree in
