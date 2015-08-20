@@ -2,6 +2,7 @@ open MidTree
 open ParseTree
 open ParseTreeBuilder
 open MidTyping
+open ListUtils
 
 type mid_error =
   | Merr_not_comp of string
@@ -69,6 +70,11 @@ type prog_state =
     cmds : CmdSet.t
   }
 
+(* The one and only effect variable with a special non-parsable name to avoid
+   conflicts. *)
+let effect_var_set = [TypExp.rigid_tvar "£"]
+let closed_effect_set = [TypExp.rigid_tvar "%"]
+
 let just_datatype = function Sterm_datatype dt -> Some dt | _ -> None
 let just_effin = function Sterm_effin ei -> Some ei | _ -> None
 let just_decl = function Sterm_vdecl vd -> Some vd | _ -> None
@@ -100,7 +106,6 @@ let refine_cpat st cp =
   match cp with
   | Scpat_request (s, ps, k)
     -> let ps' = List.map (refine_vpat st) ps in Scpat_request (s, ps', k)
-  | _ -> cp
 
 (** Using the constructor set, reconstruct the pattern lists
     to rectify any constructors incorrectly identified as variables. *)
@@ -182,6 +187,18 @@ let translate_hdr st def =
 (** Functions to construct mid-level handlers of a program from
     the declaration and clause fragments. *)
 
+(* Perform some desugaring of the type, appending a singleton set containing
+   the effect variable to each effect set. *)
+let rec desugar_type t =
+  match t.styp_desc with
+  | Styp_datatype (d, ps) -> TypExp.datatype d (map desugar_type ps)
+  | Styp_thunk c -> TypExp.sus_comp (desugar_type c)
+  | Styp_comp (ts, r)
+    -> TypExp.comp ~args:(map desugar_type ts) (desugar_type r)
+  | Styp_ret (es, v) -> TypExp.returner v ~effs:(es @ effect_var_set) ()
+  | Styp_effin (ei, ps) -> TypExp.effin ei ~params:(map desugar_type ps) ()
+  | _ -> t
+
 let make_hdr st (defs, hs) d =
   st.def_name <- d.svdecl_name;
   let name_eq def = def.vdef_name = d.svdecl_name in
@@ -190,7 +207,7 @@ let make_hdr st (defs, hs) d =
   let h =
     {
       mhdr_name = d.svdecl_name;
-      mhdr_type = d.svdecl_type;
+      mhdr_type = desugar_type d.svdecl_type;
       mhdr_defs = hdr_clauses
     }
   in (defs, h :: hs)

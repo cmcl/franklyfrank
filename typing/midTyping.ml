@@ -7,9 +7,7 @@ exception TypeError of string
 
 module ENV = Map.Make(String)
 
-type effect_var = EVempty | EVone
-
-type effect_env = src_type list * effect_var
+type effect_env = src_type list
 
 type datatype_env = (src_type list * constructor_declaration list) ENV.t
 
@@ -35,10 +33,10 @@ let just_eis t =
 let rec type_prog prog =
   let tenv = ENV.add "Bool" (TypExp.bool ())
     (ENV.add "Int" (TypExp.int ()) ENV.empty) in
-  let env = { tenv; fenv = ([], EVone); denv=ENV.empty; ienv = ENV.empty } in
+  let env = { tenv; fenv = []; denv=ENV.empty; ienv = ENV.empty } in
   let env = foldl type_tld env prog in
   try ENV.find "main" env.tenv with
-  | Not_found -> type_error ("There must exist a unique main function")
+  | Not_found -> type_error "There must exist a unique main function"
 
 and type_tld env d =
   match d with
@@ -52,10 +50,12 @@ and type_datatype env dt =
   let cs = dt.sdt_constructors in
   { env with denv = ENV.add name (ps, cs) env.denv }
 
+and find_datatype env d =
+  try ENV.find d env.denv with
+  | Not_found -> type_error ("Undefined datatype " ^ d)
+
 and find_ctr env k d =
-  let (_, cs) = try ENV.find d env.denv with
-                | Not_found -> type_error ("Undefined datatype " ^ d)
-  in
+  let (_, cs) = find_datatype env d in
   let ctr = try List.find (fun ctr -> ctr.sctr_name = k) cs with
             | Not_found -> type_error ("No constructor named " ^ k ^
 					  " for datatype " ^ d) in
@@ -116,9 +116,12 @@ and strvar v n = v ^ (string_of_int n)
 
 (** env |- res checks cc *)
 and type_ccomp env res cc =
-  match cc with
-  | Mccomp_cvalue  cv  -> type_cvalue env res cv
-  | Mccomp_clauses cls -> type_clauses env res cls
+  match cc, res.styp_desc with
+  | Mccomp_cvalue cv, Styp_ret (es, v)
+    -> type_cvalue env res cv
+  | Mccomp_clauses [], _ -> type_empty_clause env res
+  | Mccomp_clauses cls, _ -> type_clauses env res cls
+  | _ , _ -> type_error "Failed to typecheck computation"
 
 and destruct_comp_type t =
   match t.styp_desc with
@@ -126,14 +129,37 @@ and destruct_comp_type t =
   | Styp_comp (args, res) -> (args, res)
   |        _     -> type_error ("Incorrect handler type")
 
+and type_empty_clause env res =
+  match res.styp_desc with
+  | Styp_comp ([t], r)
+    -> begin
+         match t.styp_desc with
+	 | Styp_effin (es, v)
+	   -> if is_uninhabited env v then res
+    	      else let msg = Printf.sprintf "%s not uninhabited"
+		     (ShowSrcType.show v) in
+		   type_error msg
+	 | _ -> type_error "expected returner type for empty clause"
+       end
+  | _ -> type_error "expected computation type for empty clause"
+
+and is_uninhabited env v =
+  match v.styp_desc with
+  | Styp_datatype (d, _)
+    -> let (ps, ctrs) = find_datatype env d in
+       length ctrs = 0
+  | _ -> let msg = Printf.sprintf "Expected datatype but was %s"
+	   (ShowSrcType.show v) in
+	 type_error msg
+
 and type_clauses env t cls =
   let (ts, r) = destruct_comp_type t in
   foldl (type_clause env ts) r cls
 
-and type_clause env ts r (ps, cc) =
+and type_clause env ts r (ps, cv) =
   try
     let env = pat_matches env ts ps in
-    type_ccomp env r cc
+    type_cvalue env r cv
   with
   | TypeError s
     -> type_error (Printf.sprintf "%s when checking patterns..." s)
@@ -280,4 +306,18 @@ and type_icomp env ic =
        let _ = map (fun (t, c) -> type_ccomp env t c) (zip ts cs) in
        r
 
-and unify env x y = TypExp.int () (* TODO: perform unification *)
+and unify env x y =
+  let unifyfail () = 
+    let msg = Printf.sprintf "Failed to unify: %s with %s"
+      (ShowSrcType.show x) (ShowSrcType.show y) in
+    type_error msg in
+  if x = y then x
+  else
+    match y with
+    | Styp_ref p ->
+      begin
+	match Unionfind.find p with
+	| Styp_ftvar v -> Unionfind.change p x
+	|  _ -> unifyfail ()
+      end
+    | _ -> unifyfail ()
