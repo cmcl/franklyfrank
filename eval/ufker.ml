@@ -22,7 +22,8 @@ let parse_with_error lexbuf =
     exit (-1)
 
 let translate_with_error prog =
-  let ext = function  Merr_inv_clause msg -> msg
+  let ext = function  Merr_not_comp msg -> msg
+                    | Merr_inv_clause msg -> msg
                     | Merr_inv_ctr msg -> msg
                     | Merr_no_main msg -> msg in
   try translate prog with

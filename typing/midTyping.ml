@@ -263,11 +263,11 @@ and type_ivalue env iv =
 and type_cmd env c =
   let es = fst env.fenv in
   let eis = filter_map just_eis es in
-  let eis = map (fun ei -> ENV.find ei env.ienv) eis in
+  let eis = map (fun ei -> (ei, ENV.find ei env.ienv)) eis in
   let msg = Printf.sprintf "command %s not handled by ambient effects" c in
-  let (ei, cmd) = find_cmd c es msg in
+  let (ei, cmd) = find_cmd c eis msg in
   let ts = (map (fun t -> TypExp.returner t ()) cmd.scmd_args) in
-  let r = TypExp.returner cmd.scmd_res ~effs:es in
+  let r = TypExp.returner cmd.scmd_res ~effs:es () in
   let c = TypExp.comp ~args:ts r in
   let sc = TypExp.sus_comp c in
   sc

@@ -13,6 +13,10 @@ open ParseTree
 open ParseTreeBuilder
 open Printf
 
+let tvar_counter = ref 0
+let fresh_type_variable () =
+  incr tvar_counter; !tvar_counter
+
 module type EVALCOMP = sig
   include MONAD
 
@@ -127,7 +131,6 @@ module EvalComp : EVALCOMP = struct
 				       (ENV.add c (Command (c, vs, r)) env))
 	  end
 	else None
-    | _ -> None
 
   let match_pair (c, p) oenv =
     match oenv with
@@ -276,7 +279,7 @@ module EvalComp : EVALCOMP = struct
     let hdr =
       {
 	mhdr_name = "AnonMH" ^ (string_of_int tvar);
-	mhdr_type = TypExp.flexi_tvar("AnonMH" ^ (string_of_int tvar) ^ "T");
+	mhdr_type = TypExp.rigid_tvar("AnonMH" ^ (string_of_int tvar) ^ "T");
 	mhdr_defs = cls
       }
     in eval_tlhdrs env hdr cs
@@ -292,7 +295,7 @@ module EvalComp : EVALCOMP = struct
   and eval_ivalue env iv =
     match iv with
     | Mivalue_var v -> ENV.find v env
-    | Mivalue_sig s -> eval_sig env s
+    | Mivalue_cmd c -> eval_cmd env c
     | Mivalue_int n -> return (VInt n)
     | Mivalue_bool b -> return (VBool b)
     | Mivalue_icomp ic -> eval_icomp env ic
@@ -307,9 +310,9 @@ module EvalComp : EVALCOMP = struct
       | _ as v -> not_hdr ~desc:(vshow v) () in
     mhdr (List.map (eval_ccomp env) cs)
 
-  and eval_sig env s =
+  and eval_cmd env c =
     return (VMultiHandler
-	      (fun cs -> sequence cs >>= fun vs -> command s vs))
+	      (fun cs -> sequence cs >>= fun vs -> command c vs))
 
 end
 

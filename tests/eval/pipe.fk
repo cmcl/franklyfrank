@@ -45,27 +45,37 @@ catter n = bind! (receive!) ({ nil -> nil
 -}
 
 pipe : [Send x]Unit -> [Receive x]y   -> [Abort]y
-pipe         _               y         =     y;
-pipe        Unit             _         =   abort!;
+pipe         [_]             y         =     y;
+pipe        Unit            [_]        =   abort!;
 pipe   [send px -> s]   [receive -> r] =  pipe (s Unit) (r px);
 
-fib : (List Int)
-fib = Cons
-          (Cons 1 Nil)
-      (Cons
-	  (Cons 1 (Cons 2 Nil))
-      (Cons
-          (Cons 3 (Cons 5 (Cons 8 Nil)))
-      (Cons
-          Nil
-        Nil)));
+{- Test the matching of any thunk "[_]" in pipe pattern 1 (topmost) -}
+fibSendOneMoreTime : (List Int)
+fibSendOneMoreTime = Cons
+                         (Cons 1 Nil)
+                     (Cons
+                         (Cons 1 (Cons 2 Nil))
+                     (Cons
+                         (Cons 3 (Cons 5 (Cons 8 Nil)))
+                     (Cons
+                         Nil
+                     (Cons
+                         Nil
+                      Nil))));
+
+{- Test the matching of any thunk "[_]" in pipe pattern 2 -}
+fib : (List (List Int))
+fib = Nil;
 
 sender : [Send (List Int)]Unit
-sender = sends (fib!);
+sender = sends (fibSendOneMoreTime!);
+
+senderOfNothin : [Send (List Int)]Unit
+senderOfNothin = sends (fib!);
 
 length : (List x) -> Int
 length Nil = 0;
 length (Cons x xs) = plus 1 (length xs);
 
 main : [Abort](List Int)
-main = pipe (sender!) (catter!); {- (length! (fib!)));-}
+main = pipe (senderOfNothin!) (catter!); {- (length! (fib!)));-}

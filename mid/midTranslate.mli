@@ -12,6 +12,7 @@
 open MidTree
 
 type mid_error =
+  | Merr_not_comp of string
   | Merr_inv_clause of string
   | Merr_inv_ctr of string
   | Merr_no_main of string
