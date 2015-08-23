@@ -1,0 +1,45 @@
+data Zero =.
+
+data List a = Nil  : (List a)
+            | Cons : a -> (List a) -> (List a).
+
+append : (List a) -> (List a) -> (List a)
+append Nil         ys = ys;
+append (Cons x xs) ys = Cons x (append xs ys);
+
+interface Choice = choice : Bool.
+interface Fail   = fail : Zero.
+
+cond : Bool -> {[]a} -> {[]a} -> a
+cond true t e  = t!;
+cond false t e = e!;
+
+choose : a -> a -> [Choice]a
+choose x y = cond (choice!) {x} {y};
+
+allResults : [Choice, Fail]a -> (List a)
+allResults x             = Cons x Nil;
+allResults [choice -> k] = append (allResults (k true)) (allResults (k false));
+allResults [fail -> k]   = Nil;
+
+data Toss = Heads : Toss
+          | Tails : Toss.
+
+drunkToss : [Choose, Failure]Toss
+drunkToss = cond (choice!) {choose Heads Tails} {fail};
+
+toss : [Choose, Failure]Toss
+toss = choose Heads Tails;
+
+{-
+heads : Toss
+heads = {Heads};
+
+main : Toss
+main = heads!;
+-}
+
+main : (List Bool)
+main = cond true {Heads} {Tails};
+
+{-allResults (cond (choice!) Heads Tails);-}

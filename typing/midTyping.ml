@@ -134,7 +134,7 @@ and type_empty_clause env res =
   | Styp_comp ([t], r)
     -> begin
          match t.styp_desc with
-	 | Styp_effin (es, v)
+	 | Styp_ret (es, v)
 	   -> if is_uninhabited env v then res
     	      else let msg = Printf.sprintf "%s not uninhabited"
 		     (ShowSrcType.show v) in
@@ -156,10 +156,10 @@ and type_clauses env t cls =
   let (ts, r) = destruct_comp_type t in
   foldl (type_clause env ts) r cls
 
-and type_clause env ts r (ps, cv) =
+and type_clause env ts r (ps, cc) =
   try
     let env = pat_matches env ts ps in
-    type_cvalue env r cv
+    type_ccomp env r cc
   with
   | TypeError s
     -> type_error (Printf.sprintf "%s when checking patterns..." s)
@@ -279,7 +279,7 @@ and type_ivalue env iv =
        begin (* Check the ambient effects agrees with returner type. *)
 	 match t.styp_desc with
 	 | Styp_ret (es, v)
-	   -> v (* TODO: Compare es with fst (env.fenv) *) 
+	   -> v (* TODO: Compare es with fst (env.fenv) *)
 	 | _ -> let msg = Printf.sprintf
 		  "Expected returner type but type was %s"
 		  (ShowSrcType.show t) in
@@ -287,7 +287,7 @@ and type_ivalue env iv =
        end
 
 and type_cmd env c =
-  let es = fst env.fenv in
+  let es = env.fenv in
   let eis = filter_map just_eis es in
   let eis = map (fun ei -> (ei, ENV.find ei env.ienv)) eis in
   let msg = Printf.sprintf "command %s not handled by ambient effects" c in
@@ -307,17 +307,20 @@ and type_icomp env ic =
        r
 
 and unify env x y =
-  let unifyfail () = 
+  let unifyfail () =
     let msg = Printf.sprintf "Failed to unify: %s with %s"
       (ShowSrcType.show x) (ShowSrcType.show y) in
     type_error msg in
-  if x = y then x
-  else
-    match y with
-    | Styp_ref p ->
-      begin
-	match Unionfind.find p with
-	| Styp_ftvar v -> Unionfind.change p x
-	|  _ -> unifyfail ()
-      end
-    | _ -> unifyfail ()
+  match x.styp_desc, y.styp_desc with
+  | Styp_ref px, Styp_ref py
+    -> if Unionfind.equivalent px py then x
+       else begin
+              match Unionfind.find px, Unionfind.find py with
+	      | Styp_ftvar _, Styp_ftvar _ -> Unionfind.union px py; x
+	      | Styp_ftvar _, (_ as v)
+		-> Unionfind.change px v; y (* TODO: occur check *)
+	      | _ as v, Styp_ftvar _
+		-> Unionfind.change py v; x (* TODO: occur check *)
+	      | _, _ -> unifyfail ()
+            end
+  | _, _ -> unifyfail ()
