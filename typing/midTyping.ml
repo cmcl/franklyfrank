@@ -307,20 +307,23 @@ and type_icomp env ic =
        r
 
 and unify env x y =
-  let unifyfail () =
+  let unifyfail x y =
     let msg = Printf.sprintf "Failed to unify: %s with %s"
       (ShowSrcType.show x) (ShowSrcType.show y) in
     type_error msg in
+  let unify_with x y =
+    match x, y with
+    | Styp_ftvar 
+  in
   match x.styp_desc, y.styp_desc with
-  | Styp_ref px, Styp_ref py
-    -> if Unionfind.equivalent px py then x
-       else begin
-              match Unionfind.find px, Unionfind.find py with
-	      | Styp_ftvar _, Styp_ftvar _ -> Unionfind.union px py; x
-	      | Styp_ftvar _, (_ as v)
-		-> Unionfind.change px v; y (* TODO: occur check *)
-	      | _ as v, Styp_ftvar _
-		-> Unionfind.change py v; x (* TODO: occur check *)
-	      | _, _ -> unifyfail ()
-            end
-  | _, _ -> unifyfail ()
+  | Styp_ref px, Styp_ref py -> if Unionfind.equivalent px py then x
+  | _ -> let x = match x.styp_desc with
+                 | Styp_ref px -> Unionfind.find px
+		 | _ -> x.styp_desc in
+	 let y = match y.styp_desc with
+                 | Styp_ref py -> Unionfind.find py
+		 | _ -> y.styp_desc in
+	 if unify_with x y then y
+	 else if unify_with y x then x
+	 else unifyfail x y
+
