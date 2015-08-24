@@ -82,7 +82,7 @@ and inst env t =
     -> begin
          try env, ENV.find v env.tenv with
 	 | Not_found ->
-	   let point = Unionfind.fresh (Styp_ftvar v) in
+	   let point = Unionfind.fresh (TypExp.flexi_tvar v) in
 	   let uvar = { styp_desc = Styp_ref point } in
 	   let env = {env with tenv=ENV.add v uvar env.tenv} in
 	   env, uvar
@@ -306,25 +306,86 @@ and type_icomp env ic =
        let _ = map (fun (t, c) -> type_ccomp env t c) (zip ts cs) in
        r
 
+and free_vars t =
+  match t.styp_desc with
+  | Styp_datatype (_, ts)
+  | Styp_effin (_, ts)    -> List.flatten (map free_vars ts)
+
+  | Styp_thunk t          -> free_vars t
+  | Styp_ref p            -> free_vars (Unionfind.find p)
+
+  | Styp_comp (ts, t)
+  | Styp_ret (ts, t)      -> (List.flatten (map free_vars ts)) @ free_vars t
+
+  | Styp_ftvar _
+  | Styp_rtvar _ -> [t]
+
+  | Styp_bool
+  | Styp_int -> []
+
+and occur_check x t = not (List.mem x (free_vars t))
+
 and unify env x y =
-  let unifyfail x y =
+  let unify_fail x y =
     let msg = Printf.sprintf "Failed to unify: %s with %s"
       (ShowSrcType.show x) (ShowSrcType.show y) in
     type_error msg in
-  let unify_with x y = false in
-  let extract_desc x =
+  let ext_pt x =
     match x.styp_desc with
-    | Styp_ref px -> Unionfind.find px
-    | _ -> x.styp_desc in
-  let unify' x y =
-    let xd = extract_desc x in
-    let yd = extract_desc y in
-    if unify_with xd yd then y
-    else if unify_with yd xd then x
-    else unifyfail x y in
-  match x.styp_desc, y.styp_desc with
-  | Styp_ref px, Styp_ref py
-    -> if Unionfind.equivalent px py then x
-       else unify' x y
-  | _, _ -> unify' x y
+    | Styp_ref px -> px
+    | _ -> type_error "UnificationError: failed to extract point" in
+  let unify_ftvars x y =
+    let px = ext_pt x in let xt = Unionfind.find px in
+    let py = ext_pt y in let yt = Unionfind.find py in
+    match xt.styp_desc, yt.styp_desc with
+    | Styp_ftvar _ , Styp_ftvar _ -> Unionfind.union px py; true
+    | _ -> false in
+  let unify_flex x y =
+    let px = ext_pt x in
+    let xt = Unionfind.find px in
+    match xt.styp_desc, y.styp_desc with
+    | Styp_ftvar _ , Styp_ftvar _ -> false (* Handled by unify_ftvars *)
+    | Styp_ftvar _ , _
+      -> if occur_check xt y then (Unionfind.change px y; true) else false
+    | _ , _ -> false (* Handled by unify_concrete *) in
+  let unify_concrete x y =
+    let unify' env x y =
+      try let _ = unify env x y in true with
+      | TypeError _ -> false in
+    let unify_types xs ys =
+      let f = fun acc (t, t') -> acc && unify' env t t' in
+      foldl f true (zip xs ys) in
+    match x.styp_desc, y.styp_desc with
+    | Styp_thunk t          , Styp_thunk t' -> unify' env t t'
+    | Styp_rtvar v          , Styp_rtvar v' -> v = v'
 
+    | Styp_comp (ts, t)     , Styp_comp (ts', t')
+    | Styp_ret (ts, t)      , Styp_ret (ts', t')
+      -> unify_types ts ts' && unify' env t t'
+
+    | Styp_datatype (s, ts) , Styp_datatype (s', ts')
+    | Styp_effin (s, ts)    , Styp_effin (s', ts')
+      -> s = s' && unify_types ts ts'
+
+    | Styp_bool             , Styp_bool
+    | Styp_int              , Styp_int      -> true
+    | _                     , _             -> unify_fail x y in
+  let is_ref x = match x.styp_desc with Styp_ref _ -> true | _ -> false in
+  match is_ref x, is_ref y with
+  | true  , false
+    -> if unify_flex x y then y
+       else if unify_concrete (Unionfind.find (ext_pt x)) y then y
+       else unify_fail x y
+  | true  , true
+    -> if Unionfind.equivalent (ext_pt x) (ext_pt y) then x
+       else if unify_ftvars x y then x
+       else if unify_flex x (Unionfind.find (ext_pt y)) then x
+       else if unify_flex y (Unionfind.find (ext_pt x)) then y
+       else unify_fail x y
+  | false , true
+    -> if unify_flex y x then x
+       else if unify_concrete x (Unionfind.find (ext_pt y)) then x
+       else unify_fail x y
+  | false , false
+    -> if unify_concrete x y then x
+       else unify_fail x y

@@ -112,7 +112,7 @@ and src_type_desc =
   | Styp_rtvar of string (* rigid (i.e. user generated) type variable *)
   | Styp_ftvar of string (* flexible (i.e. unification generated) type
 			    variable *)
-  | Styp_ref of (src_type_desc Unionfind.point)
+  | Styp_ref of (src_type Unionfind.point)
       (** Unification variable *)
 (* Computations *)
   | Styp_comp of src_type list * src_type

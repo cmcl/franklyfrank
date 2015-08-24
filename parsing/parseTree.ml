@@ -104,7 +104,7 @@ and src_type_desc =
   | Styp_rtvar of string (* rigid (i.e. user generated) type variable *)
   | Styp_ftvar of string (* flexible (i.e. unification generated) type
 			    variable *)
-  | Styp_ref of (src_type_desc Unionfind.point)
+  | Styp_ref of (src_type Unionfind.point)
       (** Unification variable *)
 (* Computations *)
   | Styp_comp of src_type list * src_type
@@ -162,7 +162,7 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
     | Styp_ret (effs, res)
       -> "[" ^ (String.concat ", " (List.map show effs)) ^ "]" ^ (show res)
     | Styp_thunk c -> "{" ^ show c ^ "}"
-    | Styp_ref _ -> "REF"
+    | Styp_ref t -> "{-REF [" ^ show (Unionfind.find t) ^ "]-}"
 end
 
 and ShowDatatype : SHOW with type t = datatype_declaration = struct
