@@ -1,6 +1,3 @@
-bind : x -> {x -> y} -> y.
-bind m f = f m.
-
 data List a = Nil  : List a
             | Cons : a -> List a -> List a.
 
@@ -36,7 +33,7 @@ drunkToss = cond (choice!) toss fail.
 
 drunkTosses : Int -> [Choose, Failure]List Toss.
 drunkTosses 0 = Nil.
-drunkTosses n = bind (drunkToss!) {x -> Cons x (drunkTosses (minus n 1))}.
+drunkTosses n = Cons (drunkToss!) (drunkTosses (minus n 1)).
 
 main : List Bool.
 main = allResults (drunkTosses 3).
