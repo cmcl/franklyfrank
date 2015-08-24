@@ -75,6 +75,15 @@ module EvalComp : EVALCOMP = struct
     match v with
     | VBool b -> string_of_bool b
     | VInt n -> string_of_int n
+    | VCon ("Nil", []) -> "[]"
+    | VCon ("Cons", vs) ->
+      let rec show_vs =
+        function
+        | [v; VCon ("Nil", [])] -> vshow v
+        | [v; VCon ("Cons", vs)] -> vshow v ^ ", " ^ show_vs vs
+      in
+      "[" ^ show_vs vs ^ "]"
+    | VCon (k, []) -> k
     | VCon (k, vs) -> "(" ^ k ^ (string_of_args " " vshow vs) ^ ")"
     | VMultiHandler _ -> "MULTIHANDLER"
 
