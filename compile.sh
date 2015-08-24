@@ -1,1 +1,1 @@
-ocamlbuild -use-ocamlfind eval/ufker.native
+ocamlbuild -use-ocamlfind eval/frankInterpreter.native
