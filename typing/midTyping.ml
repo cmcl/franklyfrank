@@ -311,19 +311,20 @@ and unify env x y =
     let msg = Printf.sprintf "Failed to unify: %s with %s"
       (ShowSrcType.show x) (ShowSrcType.show y) in
     type_error msg in
-  let unify_with x y =
-    match x, y with
-    | Styp_ftvar 
-  in
+  let unify_with x y = false in
+  let extract_desc x =
+    match x.styp_desc with
+    | Styp_ref px -> Unionfind.find px
+    | _ -> x.styp_desc in
+  let unify' x y =
+    let xd = extract_desc x in
+    let yd = extract_desc y in
+    if unify_with xd yd then y
+    else if unify_with yd xd then x
+    else unifyfail x y in
   match x.styp_desc, y.styp_desc with
-  | Styp_ref px, Styp_ref py -> if Unionfind.equivalent px py then x
-  | _ -> let x = match x.styp_desc with
-                 | Styp_ref px -> Unionfind.find px
-		 | _ -> x.styp_desc in
-	 let y = match y.styp_desc with
-                 | Styp_ref py -> Unionfind.find py
-		 | _ -> y.styp_desc in
-	 if unify_with x y then y
-	 else if unify_with y x then x
-	 else unifyfail x y
+  | Styp_ref px, Styp_ref py
+    -> if Unionfind.equivalent px py then x
+       else unify' x y
+  | _, _ -> unify' x y
 

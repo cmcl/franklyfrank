@@ -18,10 +18,9 @@
 %token <string> ID
 %token INTERFACE
 %token <int> INTLIT
-%token LARROW
+%token RARROW
 %token LBRACE LBRACKET LPAREN
 %token RBRACE RBRACKET RPAREN
-%token SEMI
 %token TRUE
 %token <string> UID
 %token UNDERSCORE
@@ -37,10 +36,11 @@ program:
 term:
   | DATA UID opt_type_parameters EQUAL opt_constructor_decls DOT
       { Datatype.mk $2 ~params:$3 ~ctrs:$5 () |> Term.datatype }
-  | ID COLON top_level_value_type { ValueDecl.mk $1 $3 |> Term.value_decl }
+  | ID COLON top_level_value_type DOT
+      { ValueDecl.mk $1 $3 |> Term.value_decl }
   | INTERFACE ident opt_type_parameters EQUAL effect_commands DOT
       { EffInterface.mk $2 ~params:$3 ~cmds:$5 () |> Term.effect_in }
-  | ID pattern* EQUAL checkable_computation SEMI
+  | ID pattern* EQUAL checkable_computation DOT
       { ValueDefn.mk $1 ~pats:$2 $4 |> Term.value_defn }
   ;
 
@@ -64,7 +64,7 @@ pat_checkable_computation:
   ;
 
 pat_match_computation:
-  | separated_nonempty_list(COMMA, pattern) LARROW
+  | separated_nonempty_list(COMMA, pattern) RARROW
       pat_checkable_computation { CComputation.clause $1 $3 }
   ;
 
@@ -85,7 +85,7 @@ checkable_value:
 paren_checkable_value:
   | paren_inferable_value        { CValue.ivalue $1 }
   | paren_value_constructor      { $1 }
-  | LPAREN suspended_computation RPAREN  { CValue.sus_comp $2 }
+  | suspended_computation        { CValue.sus_comp $1 }
   ;
 
 inferable_value:
@@ -105,7 +105,8 @@ paren_inferable_value:
   ;
 
 inferable_computation:
-  | inferable_value BANG        { IComp.app $1 () }
+  | inferable_value BANG list(paren_checkable_computation)
+      { IComp.app $1 ~args:$3 () }
   | paren_inferable_value nonempty_list(paren_checkable_computation)
       { IComp.app $1 ~args:$2 () }
   ;
@@ -141,11 +142,11 @@ value_pattern:
   ;
 
 comp_pattern:
-  | ID value_pattern* LARROW ID    { Pattern.request $1 ~pats:$2 $4 }
+  | ID value_pattern* RARROW ID    { Pattern.request $1 ~pats:$2 $4 }
   ;
 
 opt_type_parameters:
-  | ps = list(value_type)      { ps }
+  | ps = value_types      { ps }
   ;
 
 type_variable:
@@ -170,7 +171,7 @@ effect_command:
 
 cmd_args:
   | cmd_arg                                { [$1] }
-  | cmd_args LARROW cmd_arg                { $3 :: $1 }
+  | cmd_args RARROW cmd_arg                { $3 :: $1 }
   ;
 
 cmd_arg:
@@ -203,9 +204,10 @@ constructor_decl:
 
 constructor_args:
   | constructor_arg                         { [$1] }
-  | constructor_args LARROW constructor_arg { $3 :: $1 }
+  | constructor_args RARROW constructor_arg { $3 :: $1 }
 
 constructor_arg:
+  | LPAREN constructor_arg RPAREN          { $2 }
   | type_variable                          { $1 }
   | datatype                               { $1 }
   ;
@@ -215,23 +217,41 @@ bar_constructor_decl:
   ;
 
 top_level_value_type:
-  | value_type                             { $1 }
-  | computation_types                      { TypExp.sus_comp $1 }
+  | computation_type                       { TypExp.sus_comp $1 }
   ;
 
 value_type:
+  | LPAREN value_type RPAREN               { $2 }
   | type_variable                          { $1 }
   | datatype                               { $1 }
-  | LBRACE computation_types RBRACE        { TypExp.sus_comp $2 }
+  | LBRACE computation_type RBRACE        { TypExp.sus_comp $2 }
   ;
 
 datatype:
-  | UID                           { TypExp.datatype $1 [] }
-  | LPAREN UID value_type+ RPAREN { TypExp.datatype $2 $3 }
+  | UID value_types               { TypExp.datatype $1 $2 }
   ;
 
-computation_types:
-  | returner                               { TypExp.comp $1 }
+paren_value_type:
+  | LPAREN paren_value_type RPAREN         { $2 }
+  | type_variable                          { $1 }
+  | paren_datatype                         { $1 }
+  | LBRACE computation_type RBRACE         { TypExp.sus_comp $2 }
+  ;
+
+paren_datatype:
+  | UID                                        { TypExp.datatype $1 [] }
+  | LPAREN UID non_empty_value_types RPAREN    { TypExp.datatype $2 $3 }
+  ;
+
+non_empty_value_types:
+  | paren_value_type+                      { $1 }
+
+value_types:
+  | list(paren_value_type)                 { $1 }
+  ;
+
+computation_type:
+  | arg                                    { TypExp.comp $1 }
   | rargs = arrow_type
         { match rargs with
 	  | [] -> raise (SyntaxError ("Expecting function type"))
@@ -241,8 +261,8 @@ computation_types:
   ;
 
 arrow_type:
-  | arg LARROW arg                         { [$1 ; $3] }
-  | arrow_type LARROW arg                  { $3 :: $1  }
+  | arg RARROW arg                         { [$1 ; $3] }
+  | arrow_type RARROW arg                  { $3 :: $1  }
   ;
 
 arg:
