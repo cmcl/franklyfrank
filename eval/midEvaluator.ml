@@ -290,7 +290,10 @@ module EvalComp : EVALCOMP = struct
     | Mcvalue_ctr (k, vs)
       -> sequence (List.map (eval_cvalue env) vs) >>=
          fun vs -> return (VCon (k, vs))
-    | Mcvalue_thunk cc -> eval_ccomp env cc
+    | Mcvalue_thunk (Mccomp_cvalue cv) ->
+      return (VMultiHandler (fun [] -> eval_cvalue env cv))
+    | Mcvalue_thunk cc ->
+      eval_ccomp env cc
 
   and eval_ivalue env iv =
     match iv with
