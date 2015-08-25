@@ -159,7 +159,7 @@ and type_ccomp env res cc =
   match cc, res.styp_desc with
   | Mccomp_cvalue cv, Styp_ret (es, v)
     -> let env = {env with fenv = es} in
-       type_cvalue env v cv
+       TypExp.returner (type_cvalue env v cv) ~effs:es ()
   | Mccomp_clauses [], _ -> type_empty_clause env res
   | Mccomp_clauses cls, _ -> type_clauses env res cls
   | _ , _
@@ -325,8 +325,7 @@ and type_ivalue env iv =
   | Mivalue_int _ -> TypExp.int ()
   | Mivalue_bool _ -> TypExp.bool ()
   | Mivalue_icomp ic
-    -> Debug.print "IC:%s\n" (ShowMidIComp.show ic);
-      let t = type_icomp env ic in
+    -> let t = type_icomp env ic in
        begin (* Check the ambient effects agrees with returner type. *)
 	 match t.styp_desc with
 	 | Styp_ret (es, v)
@@ -371,7 +370,6 @@ and type_icomp env ic =
   | Micomp_app (iv, cs)
     -> let t = type_ivalue env iv in
        let (ts, r) = destruct_comp_type t in
-       Debug.print "%s\n" (ShowSrcType.show t);
        let _ = begin
 	         try map (fun (t, c) -> type_ccomp env t c) (zip ts cs) with
 		 | Invalid_argument _
@@ -407,7 +405,6 @@ and unify env x y =
   let unify_fail x y =
     let msg = Printf.sprintf "failed to unify: %s with %s"
       (ShowSrcType.show x) (ShowSrcType.show y) in
-    dct x; 
     type_error msg in
   let ext_pt x =
     match x.styp_desc with
