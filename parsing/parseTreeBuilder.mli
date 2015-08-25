@@ -101,6 +101,10 @@ module TypExp :
 
     val bool : unit -> src_type
     val int : unit -> src_type
+
+    (* Effect sets *)
+    val effect_var_set : src_type list
+    val closed_effect_set : src_type list
   end
 
 (** Value definitions *)

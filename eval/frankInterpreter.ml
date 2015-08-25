@@ -32,6 +32,10 @@ let translate_with_error prog =
     -> fprintf stderr "Translation error: %s\n" (ext err);
       exit (-1)
 
+let type_with_error prog =
+  try type_prog prog with
+  | TypeError s -> fprintf stderr "Type error: %s\n" s; exit (-1)
+
 let rec parse_file lexbuf =
   match parse_with_error lexbuf with
   | [] -> ([], HandlerMap.empty, CtrSet.empty, CmdSet.empty)
@@ -46,7 +50,7 @@ let loop filename =
   let (mtree, hmap, ctrs, cmds) = parse_file lexbuf in
   Debug.debug_flag true;
   Debug.print "%s" (ShowMidProg.show mtree);
-  let t = type_prog mtree in
+  let t = type_with_error mtree in
   Debug.print "Program typechecked with main : %s" (ShowSrcType.show t);
   let res = EvalComp.eval hmap mtree in
   Debug.print "%s\n" (EvalComp.show res);

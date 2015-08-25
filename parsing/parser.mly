@@ -261,7 +261,7 @@ computation_type:
   ;
 
 arrow_type:
-  | arg RARROW arg                         { [$1 ; $3] }
+  | arg RARROW arg                         { [$3 ; $1] }
   | arrow_type RARROW arg                  { $3 :: $1  }
   ;
 

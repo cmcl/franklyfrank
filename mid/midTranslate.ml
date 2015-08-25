@@ -1,7 +1,6 @@
 open MidTree
 open ParseTree
 open ParseTreeBuilder
-open MidTyping
 open ListUtils
 
 type mid_error =
@@ -69,11 +68,6 @@ type prog_state =
     ctrs : CtrSet.t;
     cmds : CmdSet.t
   }
-
-(* The one and only effect variable with a special non-parsable name to avoid
-   conflicts. *)
-let effect_var_set = [TypExp.rigid_tvar "£"]
-let closed_effect_set = [TypExp.rigid_tvar "%"]
 
 let just_datatype = function Sterm_datatype dt -> Some dt | _ -> None
 let just_effin = function Sterm_effin ei -> Some ei | _ -> None
@@ -188,14 +182,19 @@ let translate_hdr st def =
     the declaration and clause fragments. *)
 
 (* Perform some desugaring of the type, appending a singleton set containing
-   the effect variable to each effect set. *)
+   the effect variable to each effect set and converting builtins that are
+   parsed as datatype to their corresponding builtin types. *)
 let rec desugar_type t =
   match t.styp_desc with
+  | Styp_datatype ("Int", []) -> TypExp.int ()
+  | Styp_datatype ("Bool", []) -> Debug.print "Desugaring boolean\n"; TypExp.bool ()
   | Styp_datatype (d, ps) -> TypExp.datatype d (map desugar_type ps)
   | Styp_thunk c -> TypExp.sus_comp (desugar_type c)
   | Styp_comp (ts, r)
     -> TypExp.comp ~args:(map desugar_type ts) (desugar_type r)
-  | Styp_ret (es, v) -> TypExp.returner v ~effs:(es @ effect_var_set) ()
+  | Styp_ret (es, v)
+    -> let es = map desugar_type es in
+       TypExp.returner (desugar_type v) ~effs:(es @ TypExp.effect_var_set) ()
   | Styp_effin (ei, ps) -> TypExp.effin ei ~params:(map desugar_type ps) ()
   | _ -> t
 

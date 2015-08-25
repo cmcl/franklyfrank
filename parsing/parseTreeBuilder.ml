@@ -99,6 +99,11 @@ module TypExp = struct
 
   let bool () = mk (Styp_bool)
   let int () = mk (Styp_int)
+
+  (* The one and only effect variable with a special non-parsable name to
+     avoid conflicts. *)
+  let effect_var_set = [rigid_tvar "£"]
+  let closed_effect_set = [rigid_tvar "@"]
 end
 
 module ValueDefn = struct
