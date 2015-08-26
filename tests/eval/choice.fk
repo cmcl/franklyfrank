@@ -1,4 +1,7 @@
-data List a = Nil  : List a
+data Maybe a = Nothing :      Maybe a
+             | Just    : a -> Maybe a.
+
+data List a = Nil  :                List a
             | Cons : a -> List a -> List a.
 
 data Zero =.
@@ -11,7 +14,7 @@ interface Choice = choice : Bool.
 interface Fail   = fail : Zero.
 
 cond : Bool -> {a} -> {a} -> a.
-cond true t e  = t!.
+cond true  t e = t!.
 cond false t e = e!.
 
 choose : a -> a -> [Choice]a.
@@ -25,15 +28,46 @@ allResults [fail -> k]   = Nil.
 data Toss = Heads : Toss
           | Tails : Toss.
 
-toss : [Choose, Failure]Toss.
+toss : [Choice, Fail]Toss.
 toss = choose Heads Tails.
 
-drunkToss : [Choose, Failure]Toss.
+drunkToss : [Choice, Fail]Toss.
 drunkToss = cond (choice!) toss fail.
 
-drunkTosses : Int -> [Choose, Failure]List Toss.
+drunkTosses : Int -> [Choice, Fail]List Toss.
 drunkTosses 0 = Nil.
 drunkTosses n = Cons (drunkToss!) (drunkTosses (minus n 1)).
 
+maybeResult : [Fail]a -> Maybe a.
+maybeResult x           = Just x.
+maybeResult [fail -> k] = Nothing.
+
+persevere' : {[Fail]a} -> [Fail]a -> a.
+persevere' m x           = x.
+persevere' m [fail -> k] = persevere' m (m!).
+
+persevere : [Fail]a -> a.
+persevere [m] = persevere' m (m!).
+
 main : List Bool.
 main = allResults (drunkTosses 3).
+
+{-
+interface Rand = rand : Float.
+
+builtin Random = random : Float.
+
+randomResult : [Choice]a -> [Rand]a.
+randomResult x             = x.
+randomResult [choice -> k] = randomResult (k (ltf (rand!) 0.5)).
+
+handleRandom : [Rand]a -> [Random]a.
+handleRandom x           = x.
+handleRandom [rand -> k] = k (random!).
+
+sampleMaybe : [Choice, Fail]a -> [Random]Maybe a.
+sampleMaybe m = handleRandom (maybeResult (randomResult m)).
+
+sample : [Choice, Fail]a -> [Random]a.
+sample m = handleRandom (persevere (randomResult m)).
+-}
