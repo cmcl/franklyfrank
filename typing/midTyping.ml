@@ -188,13 +188,19 @@ and type_empty_clause env res =
   | _ -> type_error "expected computation type for empty clause"
 
 and is_uninhabited env v =
-  match v.styp_desc with
+  match (unbox v).styp_desc with
   | Styp_datatype (d, _)
     -> let (ps, ctrs) = find_datatype env d in
        length ctrs = 0
   | _ -> let msg = Printf.sprintf "expected datatype but was %s"
 	   (ShowSrcType.show v) in
 	 type_error msg
+
+(* Extract underlying type from reference. *)
+and unbox t =
+  match t.styp_desc with
+  | Styp_ref pt -> Unionfind.find pt
+  | _ -> t
 
 and type_clauses env t cls =
   let (ts, r) = destruct_comp_type t in
