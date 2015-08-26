@@ -149,8 +149,8 @@ end
 module rec ShowSrcType : SHOW with type t = src_type = struct
   type t = src_type
   let rec show typ = match typ.styp_desc with
-    | Styp_rtvar v -> v
-    | Styp_ftvar v -> v
+    | Styp_rtvar v -> "{-RIG " ^ v ^ "-}"
+    | Styp_ftvar v -> "{-FLX " ^ v ^ "-}"
     | Styp_bool -> "Bool"
     | Styp_comp (args, res)
       -> (string_of_args " -> " ~bbegin:false ~endd:true show args) ^ show res

@@ -473,7 +473,10 @@ and unify env x y =
        else if unify_concrete (Unionfind.find (ext_pt x)) y then y
        else unify_fail x y
   | true  , true
-    -> if Unionfind.equivalent (ext_pt x) (ext_pt y) then x
+    -> Debug.print "Attempting to unify %s with %s\n" (ShowSrcType.show x)
+                (ShowSrcType.show y);
+      if Unionfind.equivalent (ext_pt x) (ext_pt y) then
+	(Debug.print "\nEq\n"; x)
        else if unify_ftvars x y then x
        else if unify_flex x (Unionfind.find (ext_pt y)) then x
        else if unify_flex y (Unionfind.find (ext_pt x)) then y
