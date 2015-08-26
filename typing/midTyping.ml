@@ -110,6 +110,11 @@ and inst_hdr env t =
   | Styp_thunk {styp_desc = Styp_comp _} -> snd (inst env t)
   |  _             -> t (* Monomorphic types *)
 
+and inst_ctr env ctr =
+  let (env, sctr_args) = map_accum inst env ctr.sctr_args in
+  let (_, sctr_res) = inst env ctr.sctr_res in
+  { ctr with sctr_args; sctr_res }
+
 and inst env t =
   match t.styp_desc with
   | Styp_rtvar v
@@ -286,8 +291,11 @@ and type_value_pattern env (t, vp) =
   | _, Svpat_var x -> { env with tenv = ENV.add x t env.tenv }
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
     -> let ctr = find_ctr env k d in
+       let ctr = inst_ctr env ctr in
        let () = validate_ctr_use ctr d (length vs) in
        let ts = ctr.sctr_args in
+       let r = ctr.sctr_res in
+       let _ = unify env r t in
        foldl type_value_pattern env (zip ts vs)
   | _ , _ -> pattern_error t (Pattern.vpat vp) (* Shouldn't happen *)
 
@@ -310,15 +318,21 @@ and validate_ctr_use ctr d n =
       "constructor %s of %s expects %d arguments, %d given" k d (length ts) n
     in type_error msg
 
-and type_ctr env (k, vs) (d, ts) =
+and type_ctr env (k, vs) (d, ps) =
   let ctr = find_ctr env k d in
+  let ctr = inst_ctr env ctr in
   let () = validate_ctr_use ctr d (length vs) in
   let ts = ctr.sctr_args in
-  (* The following map operation will blow up (raise a TypeError
-     exception) if we cannot unify the argument types with the provided
-     values. *)
+  let r = ctr.sctr_res in
+  let res = TypExp.datatype d ps in
+  (* Perform unification of the constructor result and overall result type
+     expected. *)
+  let _ = unify env r res in
+  (* The following map operation will blow up (raise a TypeError exception) if
+     we cannot unify the argument types with the provided values. The argument
+     types may have changed as a result of the above unification. *)
   let _ = map (fun (t, v) -> type_cvalue env t v) (zip ts vs) in
-  TypExp.datatype d ts (* Typechecked datatype *)
+  res
 
 (** env |- iv infers (type_ivalue env iv) *)
 and type_ivalue env iv =
