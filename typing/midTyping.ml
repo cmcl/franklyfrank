@@ -117,6 +117,7 @@ and inst_ctr env ctr =
 
 and inst env t =
   match t.styp_desc with
+  | Styp_rtvar "£" -> env, t
   | Styp_rtvar v
     -> begin
          try env, ENV.find v env.tenv with
@@ -212,6 +213,9 @@ and type_clauses env t cls =
   foldl (type_clause env ts) r cls
 
 and type_clause env ts r (ps, cc) =
+  Debug.print "%s with %s\n"
+    (string_of_args ", " ~bbegin:false ShowSrcType.show ts)
+    (string_of_args ", " ~bbegin:false ShowPattern.show ps);
   let env = try pat_matches env ts ps with
     | TypeError s
       -> type_error (Printf.sprintf "%s when checking patterns" s) in
@@ -291,11 +295,8 @@ and type_value_pattern env (t, vp) =
   | _, Svpat_var x -> { env with tenv = ENV.add x t env.tenv }
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
     -> let ctr = find_ctr env k d in
-       let ctr = inst_ctr env ctr in
        let () = validate_ctr_use ctr d (length vs) in
        let ts = ctr.sctr_args in
-       let r = ctr.sctr_res in
-       let _ = unify env r t in
        foldl type_value_pattern env (zip ts vs)
   | _ , _ -> pattern_error t (Pattern.vpat vp) (* Shouldn't happen *)
 
@@ -305,8 +306,8 @@ and type_cvalue env res cv =
     -> let t = type_ivalue env iv in
        unify env res t
   | Mcvalue_ctr (k, vs), Styp_datatype (d, ts) -> type_ctr env (k, vs) (d, ts)
-  | Mcvalue_thunk cc, Styp_thunk c -> type_ccomp env c cc (** TODO: Add
-						     coverage checking *)
+  | Mcvalue_thunk cc, Styp_thunk c (** TODO: Add coverage checking *)
+    -> TypExp.sus_comp (type_ccomp env c cc)
   | _ , _ -> type_error ("cannot check " ^ ShowMidCValue.show cv ^
 			    " against " ^ ShowSrcType.show res)
 
@@ -331,6 +332,9 @@ and type_ctr env (k, vs) (d, ps) =
   (* The following map operation will blow up (raise a TypeError exception) if
      we cannot unify the argument types with the provided values. The argument
      types may have changed as a result of the above unification. *)
+  Debug.print "Checking %s against %s\n"
+    (string_of_args ", " ShowSrcType.show ts)
+    (string_of_args ", " ShowMidCValue.show vs);
   let _ = map (fun (t, v) -> type_cvalue env t v) (zip ts vs) in
   res
 
@@ -338,8 +342,10 @@ and type_ctr env (k, vs) (d, ps) =
 and type_ivalue env iv =
   match iv with
   | Mivalue_var v -> begin
-                       try inst_hdr env (ENV.find v env.tenv) with
-                       | Not_found -> type_error ("undefined identifier " ^ v)
+    let t = try ENV.find v env.tenv with
+      | Not_found -> type_error ("undefined identifier " ^ v) in
+    let t = inst_hdr env t in
+    Debug.print "%s has type %s in env\n" v (ShowSrcType.show t); t
                      end
   | Mivalue_cmd c -> inst_hdr env (type_cmd env c)
   | Mivalue_int _ -> TypExp.int ()
@@ -389,6 +395,7 @@ and type_icomp env ic =
   match ic with
   | Micomp_app (iv, cs)
     -> let t = type_ivalue env iv in
+       Debug.print "EHEHEHEHE\n";
        let (ts, r) = destruct_comp_type t in
        let _ = begin
 	         try map (fun (t, c) -> type_ccomp env t c) (zip ts cs) with
@@ -440,7 +447,7 @@ and unify env x y =
     let px = ext_pt x in
     let xt = Unionfind.find px in
     match xt.styp_desc, y.styp_desc with
-    | Styp_ftvar _ , Styp_ftvar _ -> false (* Handled by unify_ftvars *)
+    | Styp_ftvar _ , Styp_ftvar _ -> assert false (* Handled by unify_ftvars *)
     | Styp_ftvar _ , _
       -> if occur_check xt y then (Unionfind.change px y; true) else false
     | _ , _ -> false (* Handled by unify_concrete *) in
@@ -453,7 +460,9 @@ and unify env x y =
       foldl f true (zip xs ys) in
     match x.styp_desc, y.styp_desc with
     | Styp_thunk t          , Styp_thunk t' -> unify' env t t'
-    | Styp_rtvar v          , Styp_rtvar v' -> v = v'
+    | Styp_rtvar v          , Styp_rtvar v' ->
+      Debug.print "unifying rigids: %s and %s" v v';
+      v = v'
 
     | Styp_comp (ts, t)     , Styp_comp (ts', t')
     | Styp_ret (ts, t)      , Styp_ret (ts', t')
@@ -477,9 +486,11 @@ and unify env x y =
                 (ShowSrcType.show y);
       if Unionfind.equivalent (ext_pt x) (ext_pt y) then
 	(Debug.print "\nEq\n"; x)
-       else if unify_ftvars x y then x
+       else if unify_ftvars x y then (Debug.print "\nUnion\n";x)
        else if unify_flex x (Unionfind.find (ext_pt y)) then x
        else if unify_flex y (Unionfind.find (ext_pt x)) then y
+       else if unify_concrete (Unionfind.find (ext_pt x))
+       	                      (Unionfind.find (ext_pt y)) then x
        else unify_fail x y
   | false , true
     -> if unify_flex y x then x

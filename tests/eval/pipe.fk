@@ -11,7 +11,7 @@ append (Cons ax xs) ys = Cons ax (append xs ys).
 
 interface Send x = send : x -> Unit.
 
-interface Receive x = receive : x.
+interface Receive z = receive : z.
 
 interface Abort = aborting : Zero.
 
@@ -31,13 +31,14 @@ semi   x    y =  y.
 sends : (List x) -> [Send x]Unit.
 sends xs = semi (map send xs) Unit.
 
-{-
-Does not work; infinite recursion generates unmatched receives.-}
+helpCatter : List x -> [Receive (List x)]List x.
+helpCatter Nil = Nil.
+helpCatter cxs = append cxs (catter!).
 
 catter : [Receive (List x)](List x).
-catter = bind (receive!) { Nil -> Nil | cxs -> append cxs (catter!) }.
+catter = bind (receive!) helpCatter.
 
-{-
+{-nfind.equivalent (ext_pt x) (ext_pt y
 catter : [Receive (List X)](List X).
 catter 0 = nil.
 catter n = bind! (receive!) { nil -> nil
