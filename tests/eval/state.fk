@@ -1,0 +1,38 @@
+data Unit = Unit : Unit.
+
+data List a = Nil  :                List a
+            | Cons : a -> List a -> List a.
+
+data Pair a b = Pair : a -> b -> Pair a b.
+
+interface State s = get : s
+	          | put : s -> Unit.
+
+
+bind : a -> {a -> b} -> b.
+bind m f = f m.
+
+semi : a -> b -> b.
+semi x y = y.
+
+not : Bool -> Bool.
+not true  = false.
+not false = true.
+
+evalState : s -> [State s]a -> a.
+evalState   s    v             =  v.
+evalState   s    [put s' -> k] =  evalState s' (k Unit).
+evalState   s    [get    -> k] =  evalState s  (k s).
+
+logState : s -> [State s]a -> Pair a (List s).
+logState s v             = Pair v (Cons s Nil).
+logState s [put t -> k] =
+  bind (logState t (k Unit)) {(Pair v ss) -> Pair v (Cons s ss)}.
+logState s [get -> k] = logState s (k s).
+
+toggle : [State Bool]Bool.
+toggle = bind (get!) {x -> semi (put (not x)) x}.
+
+main : Bool.
+main = logState true (toggle!).
+{- main = evalState true (toggle!). -}
