@@ -47,8 +47,8 @@ let loop filename =
   let () = lexbuf.lex_curr_p <- {
     lexbuf.lex_curr_p with pos_fname = filename
   } in
-  let (mtree, hmap, ctrs, cmds) = parse_file lexbuf in
   Debug.debug_flag true;
+  let (mtree, hmap, ctrs, cmds) = parse_file lexbuf in
   Debug.print "%s" (ShowMidProg.show mtree);
   let t = type_with_error mtree in
   Debug.print "Program typechecked with main : %s" (ShowSrcType.show t);

@@ -187,7 +187,8 @@ let translate_hdr st def =
 let rec desugar_type t =
   match t.styp_desc with
   | Styp_datatype ("Int", []) -> TypExp.int ()
-  | Styp_datatype ("Bool", []) -> Debug.print "Desugaring boolean\n"; TypExp.bool ()
+  | Styp_datatype ("Bool", [])
+    -> Debug.print "Desugaring boolean\n"; TypExp.bool ()
   | Styp_datatype (d, ps) -> TypExp.datatype d (map desugar_type ps)
   | Styp_thunk c -> TypExp.sus_comp (desugar_type c)
   | Styp_comp (ts, r)
@@ -197,6 +198,20 @@ let rec desugar_type t =
        TypExp.returner (desugar_type v) ~effs:(es @ TypExp.effect_var_set) ()
   | Styp_effin (ei, ps) -> TypExp.effin ei ~params:(map desugar_type ps) ()
   | _ -> t
+
+let desugar_datatype dt =
+  let desugar_ctr ctr =
+    {ctr with sctr_args = map desugar_type ctr.sctr_args;
+              sctr_res = desugar_type ctr.sctr_res } in
+  {dt with sdt_parameters = map desugar_type dt.sdt_parameters;
+           sdt_constructors = map desugar_ctr dt.sdt_constructors }
+
+let desugar_effect_interface ei =
+  let desugar_cmd cmd =
+    {cmd with scmd_args = map desugar_type cmd.scmd_args;
+              scmd_res = desugar_type cmd.scmd_res } in
+  {ei with sei_parameters = map desugar_type ei.sei_parameters;
+           sei_commands = map desugar_cmd ei.sei_commands }
 
 let make_hdr st (defs, hs) d =
   st.def_name <- d.svdecl_name;
@@ -232,6 +247,8 @@ let merge dts eis hmap =
 
 let translate prog =
   let (dts, eis, decls, defs) = partition prog in
+  let dts = map desugar_datatype dts in
+  let eis = map desugar_effect_interface eis in
   let ctrs = List.flatten (List.map (fun dt -> dt.sdt_constructors) dts) in
   let cmds = List.flatten (List.map (fun ei -> ei.sei_commands) eis) in
   let ctrs = List.fold_left add_ctr CtrSet.empty ctrs in
