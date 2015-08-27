@@ -128,6 +128,10 @@ and src_type_desc =
 val string_of_args : string -> ?bbegin:bool -> ?endd:bool ->
   ('a -> string) -> 'a list -> string
 
+val compare : src_type -> src_type -> int
+(** Comparison function for types conforming to the return semantics of
+    [Pervasives.compare]. *)
+
 module ShowPattern : SHOW with type t = pattern
 
 module ShowSrcType : SHOW with type t = src_type

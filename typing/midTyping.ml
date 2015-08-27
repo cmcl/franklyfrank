@@ -345,7 +345,8 @@ and type_ivalue env iv =
     let t = try ENV.find v env.tenv with
       | Not_found -> type_error ("undefined identifier " ^ v) in
     let t = inst_hdr env t in
-    Debug.print "%s has type %s in env\n" v (ShowSrcType.show t); t
+    Debug.print "%s has type %s in env\n" v (ShowSrcType.show (uniq_type t));
+    t
                      end
   | Mivalue_cmd c -> inst_hdr env (type_cmd env c)
   | Mivalue_int _ -> TypExp.int ()
@@ -428,6 +429,28 @@ and free_vars t =
 
 and occur_check x t = not (List.mem x (free_vars t))
 
+(* Perform effect set uniqueness at the type-level. Useful for debugging. *)
+and uniq_type t =
+  match t.styp_desc with
+  | Styp_thunk { styp_desc = Styp_comp (ts, t) }
+    -> TypExp.sus_comp (TypExp.comp ~args:(map uniq_type ts) (uniq_type t))
+  | Styp_ret (es, v) -> TypExp.returner v ~effs:(uniq_effect_set es) ()
+  |  _ -> t
+
+and uniq_effect_set xs =
+  let cmp x y = (*Temporary hack for effect var*)
+    match x.styp_desc , y.styp_desc with
+    | Styp_rtvar "£"      , _              ->  1
+    | _                   , Styp_rtvar "£" -> -1
+    | Styp_effin (ei, ps) , Styp_effin (ei', ps')
+      -> let ei_cmp = String.compare ei ei' in
+	 let t_cmp = compare x y in
+	 if t_cmp = 0 then t_cmp
+	 else if ei_cmp = 0 then -1 (* Don't reorder; shadowing semantics *)
+	 else t_cmp
+    | _                   , _              -> assert false in
+  List.sort_uniq cmp xs
+
 and unify env x y =
   let unify_fail x y =
     let msg = Printf.sprintf "failed to unify: %s with %s"
@@ -458,6 +481,11 @@ and unify env x y =
     let unify_types xs ys =
       let f = fun acc (t, t') -> acc && unify' env t t' in
       foldl f true (zip xs ys) in
+    (* Order does not matter for effect sets *)
+    let unify_effect_sets xs ys =
+      let xs = uniq_effect_set xs in
+      let ys = uniq_effect_set ys in
+      unify_types xs ys in
     match x.styp_desc, y.styp_desc with
     | Styp_thunk t          , Styp_thunk t' -> unify' env t t'
     | Styp_rtvar v          , Styp_rtvar v' ->
@@ -465,8 +493,10 @@ and unify env x y =
       v = v'
 
     | Styp_comp (ts, t)     , Styp_comp (ts', t')
-    | Styp_ret (ts, t)      , Styp_ret (ts', t')
       -> unify_types ts ts' && unify' env t t'
+
+    | Styp_ret (ts, t)      , Styp_ret (ts', t')
+      -> unify_effect_sets ts ts' && unify' env t t'
 
     | Styp_datatype (s, ts) , Styp_datatype (s', ts')
     | Styp_effin (s, ts)    , Styp_effin (s', ts')

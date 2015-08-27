@@ -1,4 +1,6 @@
 open Show
+open ListUtils
+open Utility
 
 type prog = term list
 
@@ -121,6 +123,71 @@ let string_of_args sep ?(bbegin = true) ?(endd = false) f xs = match xs with
   | xs -> (if bbegin then sep else "")
     ^ (String.concat sep (List.map f xs)) ^
     (if endd then sep else "")
+
+let rec compare x y =
+  let f acc x y =
+    if acc != 0 then acc
+    else compare x y in
+  match x.styp_desc , y.styp_desc with
+  | Styp_datatype (d, ps) , Styp_datatype (d', ps')
+    -> let cmp = String.compare d d' in
+       let cmp' = Pervasives.compare (length ps) (length ps') in
+       if cmp != 0 then cmp
+       else if cmp' != 0 then cmp'
+       else foldl (uncurry @ f) 0 (zip ps ps')
+  | Styp_datatype _ , _ -> 1
+  | _               , Styp_datatype _ -> -1
+
+  | Styp_thunk c, Styp_thunk c'  -> compare c c'
+  | Styp_thunk _, _              -> 1
+  | _           , Styp_thunk _   -> -1
+
+  | Styp_rtvar v, Styp_rtvar v'  -> String.compare v v'
+  | Styp_rtvar _, _              -> 1
+  | _           , Styp_rtvar _   -> -1
+
+  | Styp_ftvar v, Styp_ftvar v'  -> String.compare v v'
+  | Styp_ftvar _, _              -> 1
+  | _           , Styp_ftvar _   -> -1
+
+  | Styp_ref pt , Styp_ref pt'
+    -> compare (Unionfind.find pt) (Unionfind.find pt)
+  | Styp_ref _  , _ -> 1
+  | _           , Styp_ref _ -> -1
+
+  | Styp_comp (ts, t), Styp_comp (ts', t')
+    -> let cmp = compare t t' in
+       let cmp' = Pervasives.compare (length ts) (length ts') in
+       if cmp != 0 then cmp
+       else if cmp' != 0 then cmp'
+       else foldl (uncurry @ f) 0 (zip ts ts')
+  | Styp_comp _      , _           -> 1
+  | _                , Styp_comp _ -> -1
+
+  | Styp_ret (ts, t) , Styp_ret (ts', t')
+    -> let cmp = compare t t' in
+       let cmp' = Pervasives.compare (length ts) (length ts') in
+       if cmp != 0 then cmp
+       else if cmp' != 0 then cmp'
+       else foldl (uncurry @ f) 0 (zip ts ts')
+  | Styp_ret _       , _          -> 1
+  | _                , Styp_ret _ -> -1
+
+  | Styp_effin (ei, ts), Styp_effin (ei', ts')
+    -> let cmp = String.compare ei ei' in
+       let cmp' = Pervasives.compare (length ts) (length ts') in
+       if cmp != 0 then cmp
+       else if cmp' != 0 then cmp'
+       else foldl (uncurry @ f) 0 (zip ts ts')
+  | Styp_effin _       , _            -> 1
+  | _                  , Styp_effin _ -> -1
+
+  | Styp_bool , Styp_bool -> 0
+  | Styp_bool , _         -> 1
+  | _         , Styp_bool -> -1
+
+  | Styp_int  , Styp_int -> 0
+
 
 (** Show functions *)
 module ShowPattern : SHOW with type t = pattern = struct
