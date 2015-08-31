@@ -51,7 +51,7 @@ pipe        Unit            [_]        =   abort!.
 pipe   [send px -> s]   [receive -> r] =  pipe (s Unit) (r px).
 
 {- Test the matching of any thunk "[_]" in pipe pattern 1 (topmost) -}
-fibSendOneMoreTime : (List Int).
+fibSendOneMoreTime : List (List Int).
 fibSendOneMoreTime = Cons
                          (Cons 1 Nil)
                      (Cons

@@ -39,10 +39,26 @@ let gt_type =
   let r = TypExp.returner (TypExp.bool ()) ~effs:oes () in
   TypExp.sus_comp (TypExp.comp ~args:ts r)
 
+let minus_type =
+  let oes = TypExp.effect_var_set in
+  let arg = TypExp.returner (TypExp.int ()) ~effs:oes () in
+  let ts = [arg; arg] in
+  let r = TypExp.returner (TypExp.int ()) ~effs:oes () in
+  TypExp.sus_comp (TypExp.comp ~args:ts r)
+
+let plus_type =
+  let oes = TypExp.effect_var_set in
+  let arg = TypExp.returner (TypExp.int ()) ~effs:oes () in
+  let ts = [arg; arg] in
+  let r = TypExp.returner (TypExp.int ()) ~effs:oes () in
+  TypExp.sus_comp (TypExp.comp ~args:ts r)
+
 let get_builtins () =
   let tenv = ENV.add "Bool" (TypExp.bool ())
     (ENV.add "Int" (TypExp.int ()) ENV.empty) in
-  let tenv = ENV.add "gt" gt_type tenv in
+  let tenv = ENV.add "plus" plus_type
+    (ENV.add "minus" minus_type
+       (ENV.add "gt" gt_type tenv)) in
   tenv
 
 let rec type_prog prog =
@@ -96,6 +112,18 @@ and type_hdr env h =
 and find_datatype env d =
   try ENV.find d env.denv with
   | Not_found -> type_error ("undefined datatype " ^ d)
+
+and find_datatype_from_ctr env k vs =
+  let dts = ENV.bindings env.denv in
+  let f (d, (ps, cs)) =
+    try
+      let _ = List.find (fun ctr -> ctr.sctr_name = k) cs in
+      Some (d, ps)
+    with
+    | Not_found -> None in
+  let dts = filter_map f dts in
+  if length dts = 1 then List.hd dts
+  else type_error ("Multiple constructors named " ^ k)
 
 and find_ctr env k d =
   let (_, cs) = find_datatype env d in
@@ -236,7 +264,7 @@ and type_pattern env (t, p) =
   | Styp_ret (es, v), Spat_thunk thk
     -> { env with tenv = ENV.add thk (TypExp.sus_comp t) env.tenv }
   | _, Spat_comp cp -> type_comp_pattern env (t, cp)
-(* Value patterns match value types and the underlying value in returners *)
+  (* Value patterns match value types and the underlying value in returners *)
   | Styp_datatype _, Spat_value vp
   | Styp_thunk _, Spat_value vp
   | Styp_rtvar _, Spat_value vp
@@ -298,6 +326,15 @@ and type_value_pattern env (t, vp) =
        let () = validate_ctr_use ctr d (length vs) in
        let ts = ctr.sctr_args in
        foldl type_value_pattern env (zip ts vs)
+  | Styp_ref pt, _
+    -> begin
+         match (unbox t).styp_desc, vp with
+	 | Styp_ftvar _, Svpat_ctr (k, vs)
+	   -> let (d, ps) = find_datatype_from_ctr env k vs in
+	      let t' = TypExp.datatype d ps in
+	      let _ = unify env t t' in env
+	 | _ , _ -> type_value_pattern env (unbox t, vp)
+       end
   | _ , _ -> pattern_error t (Pattern.vpat vp) (* Shouldn't happen *)
 
 and type_cvalue env res cv =
@@ -308,6 +345,7 @@ and type_cvalue env res cv =
   | Mcvalue_ctr (k, vs), Styp_datatype (d, ts) -> type_ctr env (k, vs) (d, ts)
   | Mcvalue_thunk cc, Styp_thunk c (** TODO: Add coverage checking *)
     -> TypExp.sus_comp (type_ccomp env c cc)
+  | _ , Styp_ref pt -> type_cvalue env (Unionfind.find pt) cv
   | _ , _ -> type_error ("cannot check " ^ ShowMidCValue.show cv ^
 			    " against " ^ ShowSrcType.show res)
 
