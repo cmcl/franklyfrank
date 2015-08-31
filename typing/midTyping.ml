@@ -113,7 +113,7 @@ and find_datatype env d =
   try ENV.find d env.denv with
   | Not_found -> type_error ("undefined datatype " ^ d)
 
-and find_datatype_from_ctr env k vs =
+and find_datatype_from_ctr env k =
   let dts = ENV.bindings env.denv in
   let f (d, (ps, cs)) =
     try
@@ -330,7 +330,7 @@ and type_value_pattern env (t, vp) =
     -> begin
          match (unbox t).styp_desc, vp with
 	 | Styp_ftvar _, Svpat_ctr (k, vs)
-	   -> let (d, ps) = find_datatype_from_ctr env k vs in
+	   -> let (d, ps) = find_datatype_from_ctr env k in
 	      let t' = TypExp.datatype d ps in
 	      let _ = unify env t t' in env
 	 | _ , _ -> type_value_pattern env (unbox t, vp)
@@ -345,7 +345,17 @@ and type_cvalue env res cv =
   | Mcvalue_ctr (k, vs), Styp_datatype (d, ts) -> type_ctr env (k, vs) (d, ts)
   | Mcvalue_thunk cc, Styp_thunk c (** TODO: Add coverage checking *)
     -> TypExp.sus_comp (type_ccomp env c cc)
-  | _ , Styp_ref pt -> type_cvalue env (Unionfind.find pt) cv
+  | _ , Styp_ref pt
+    -> begin
+         match cv, (unbox res).styp_desc with
+	 | Mcvalue_ctr (k, vs), Styp_ftvar _
+	   -> let (d, ps) = find_datatype_from_ctr env k in
+	      let t = TypExp.datatype d ps in
+	      unify env res t
+	 | _ , _ ->  type_cvalue env (unbox res) cv
+       end
+
+
   | _ , _ -> type_error ("cannot check " ^ ShowMidCValue.show cv ^
 			    " against " ^ ShowSrcType.show res)
 
