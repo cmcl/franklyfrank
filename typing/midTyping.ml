@@ -104,6 +104,7 @@ and add_hdr env h =
   { env with tenv = ENV.add name t env.tenv }
 
 and type_hdr env h =
+  fun (x, t) -> 
   let name = h.mhdr_name in
   let t = h.mhdr_type in
   try type_clauses env t h.mhdr_defs with
@@ -320,7 +321,10 @@ and type_value_pattern env (t, vp) =
   | Styp_int, Svpat_int _
   | _, Svpat_any
     -> env
-  | _, Svpat_var x -> { env with tenv = ENV.add x t env.tenv }
+  | _, Svpat_var x
+    -> let t = snd (inst env t) in
+       Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
+       { env with tenv = ENV.add x t env.tenv }
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
     -> let ctr = find_ctr env k d in
        let () = validate_ctr_use ctr d (length vs) in
@@ -340,7 +344,9 @@ and type_value_pattern env (t, vp) =
 and type_cvalue env res cv =
   match cv, res.styp_desc with
   | Mcvalue_ivalue iv, _
-    -> let t = type_ivalue env iv in
+    -> Debug.print "CV: Attempting to type %s with %s\n"
+	 (ShowMidIValue.show iv) (ShowSrcType.show res);
+       let t = type_ivalue env iv in
        unify env res t
   | Mcvalue_ctr (k, vs), Styp_datatype (d, ts) -> type_ctr env (k, vs) (d, ts)
   | Mcvalue_thunk cc, Styp_thunk c (** TODO: Add coverage checking *)
@@ -444,7 +450,6 @@ and type_icomp env ic =
   match ic with
   | Micomp_app (iv, cs)
     -> let t = type_ivalue env iv in
-       Debug.print "EHEHEHEHE\n";
        let (ts, r) = destruct_comp_type t in
        let _ = begin
 	         try map (fun (t, c) -> type_ccomp env t c) (zip ts cs) with
@@ -456,7 +461,10 @@ and type_icomp env ic =
 				    (length ts) (length cs))
                end
        in
-       r
+       if does r env.fenv then r
+       else type_error "ambient effects not allowed by computation"
+
+and does r es = true
 
 and free_vars t =
   match t.styp_desc with
