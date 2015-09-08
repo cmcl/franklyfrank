@@ -104,7 +104,6 @@ and add_hdr env h =
   { env with tenv = ENV.add name t env.tenv }
 
 and type_hdr env h =
-  fun (x, t) -> 
   let name = h.mhdr_name in
   let t = h.mhdr_type in
   try type_clauses env t h.mhdr_defs with
@@ -183,7 +182,7 @@ and inst_with f env t =
        let (env, r) = inst_with f env r in
        env, TypExp.comp ~args:ts r
   | Styp_ftvar _ (* Will never be outside a ref *)
-  | Styp_ref _
+  | Styp_ref _ (* TODO: Possibly incorrect behaviour *)
   | Styp_bool
   | Styp_int -> env, t
 
@@ -250,7 +249,6 @@ and type_clause env ts r (ps, cc) =
       -> type_error (Printf.sprintf "%s when checking patterns" s) in
   try type_ccomp env r cc with
   | TypeError s -> type_error (Printf.sprintf "%s when checking comp" s)
-
 
 and pat_matches env ts ps = foldl type_pattern env (zip ts ps)
 
@@ -326,8 +324,7 @@ and type_value_pattern env (t, vp) =
        Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
        { env with tenv = ENV.add x t env.tenv }
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
-    -> let ctr = find_ctr env k d in
-       let () = validate_ctr_use ctr d (length vs) in
+    -> let ctr = unify_ctr env k (length vs) (d, ps) in
        let ts = ctr.sctr_args in
        foldl type_value_pattern env (zip ts vs)
   | Styp_ref pt, _
@@ -360,8 +357,6 @@ and type_cvalue env res cv =
 	      unify env res t
 	 | _ , _ ->  type_cvalue env (unbox res) cv
        end
-
-
   | _ , _ -> type_error ("cannot check " ^ ShowMidCValue.show cv ^
 			    " against " ^ ShowSrcType.show res)
 
@@ -373,16 +368,20 @@ and validate_ctr_use ctr d n =
       "constructor %s of %s expects %d arguments, %d given" k d (length ts) n
     in type_error msg
 
-and type_ctr env (k, vs) (d, ps) =
+and unify_ctr env k n (d, ps) =
   let ctr = find_ctr env k d in
   let ctr = inst_ctr env ctr in
-  let () = validate_ctr_use ctr d (length vs) in
-  let ts = ctr.sctr_args in
+  let () = validate_ctr_use ctr d n in
   let r = ctr.sctr_res in
   let res = TypExp.datatype d ps in
   (* Perform unification of the constructor result and overall result type
      expected. *)
   let _ = unify env r res in
+  ctr
+
+and type_ctr env (k, vs) (d, ps) =
+  let ctr = unify_ctr env k (length vs) (d, ps) in
+  let ts = ctr.sctr_args in
   (* The following map operation will blow up (raise a TypeError exception) if
      we cannot unify the argument types with the provided values. The argument
      types may have changed as a result of the above unification. *)
@@ -390,7 +389,7 @@ and type_ctr env (k, vs) (d, ps) =
     (string_of_args ", " ShowSrcType.show ts)
     (string_of_args ", " ShowMidCValue.show vs);
   let _ = map (fun (t, v) -> type_cvalue env t v) (zip ts vs) in
-  res
+  TypExp.datatype d ps
 
 (** env |- iv infers (type_ivalue env iv) *)
 and type_ivalue env iv =
@@ -526,7 +525,8 @@ and unify env x y =
     let px = ext_pt x in
     let xt = Unionfind.find px in
     match xt.styp_desc, y.styp_desc with
-    | Styp_ftvar _ , Styp_ftvar _ -> assert false (* Handled by unify_ftvars *)
+    | Styp_ftvar _ , Styp_ftvar _
+      -> assert false (* Handled by unify_ftvars *)
     | Styp_ftvar _ , _
       -> if occur_check xt y then (Unionfind.change px y; true) else false
     | _ , _ -> false (* Handled by unify_concrete *) in
