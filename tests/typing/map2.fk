@@ -78,5 +78,5 @@ length : (List x) -> Int.
 length Nil = 0.
 length (Cons x xs) = plus 1 (length xs).
 
-main : [Abort](List Int).
-main = pipe (sender!) (catter!). {- (length! (fib!))).-}
+main : List Int.
+main = map {xs -> xs} (Cons 1 (Cons 2 (Cons 3 Nil))).

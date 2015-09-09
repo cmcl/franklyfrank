@@ -238,7 +238,7 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
     | Styp_ret (effs, res)
       -> "[" ^ (String.concat ", " (List.map show effs)) ^ "]" ^ (show res)
     | Styp_thunk c -> "{" ^ show c ^ "}"
-    | Styp_ref t -> "{-REF [" ^ show (Unionfind.find t) ^ "]-}"
+    | Styp_ref t -> "|" ^ show (Unionfind.find t) ^ "|"
 end
 
 and ShowDatatype : SHOW with type t = datatype_declaration = struct

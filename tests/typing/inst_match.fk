@@ -1,0 +1,13 @@
+data List x = Nil  : x
+            | Cons : x -> (List x) -> (List x).
+
+hd : List x -> x -> x.
+hd Nil d = d.
+hd (Cons x xs) d = x.
+
+map : {a -> b} -> (List a) -> (List b).
+map f Nil = Nil.
+map f (Cons x xs) = f true.
+
+main : List Int.
+main = Nil.

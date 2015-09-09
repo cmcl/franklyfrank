@@ -6,6 +6,10 @@ open ListUtils
 exception TypeError of string
 
 module ENV = Map.Make(String)
+module VENV = Map.Make(struct type t = int
+			      let compare = Pervasives.compare
+                       end)
+module HENV = Set.Make(String)
 
 type effect_env = src_type list
 
@@ -13,13 +17,19 @@ type datatype_env = (src_type list * constructor_declaration list) ENV.t
 
 type interface_env = (src_type list * command_declaration list) ENV.t
 
+type tlhandler_env = HENV.t
+
 type env =
   {
     tenv : src_type ENV.t;
     (** Type environment mapping variables to their types. *)
+    venv : src_type VENV.t;
+    (** Type variable environment mapping rigid type variables to their
+	instantiations. *)
     fenv : effect_env; (** Ambient effects *)
     denv : datatype_env; (** Map datatypes to a pair consisting of parameters
 			     and a list of constructors. *)
+    henv : tlhandler_env; (** Top-level handler environment *)
     ienv : interface_env; (** Map effect interfaces to a pair consisting of
 			      their parameters and command declarations. *)
   }
@@ -53,18 +63,20 @@ let plus_type =
   let r = TypExp.returner (TypExp.int ()) ~effs:oes () in
   TypExp.sus_comp (TypExp.comp ~args:ts r)
 
-let get_builtins () =
-  let tenv = ENV.add "Bool" (TypExp.bool ())
-    (ENV.add "Int" (TypExp.int ()) ENV.empty) in
+let add_builtins env =
   let tenv = ENV.add "plus" plus_type
     (ENV.add "minus" minus_type
-       (ENV.add "gt" gt_type tenv)) in
-  tenv
+       (ENV.add "gt" gt_type env.tenv)) in
+  { env
+    with
+      tenv = tenv;
+      henv = HENV.add "plus" (HENV.add "gt" (HENV.add "minus" env.henv)) }
 
 let rec type_prog prog =
-  let tenv = get_builtins () in
   let fenv = get_main_effect_set prog in
-  let env = { tenv; fenv; denv=ENV.empty; ienv = ENV.empty } in
+  let env = { tenv = ENV.empty; venv = VENV.empty; fenv; denv=ENV.empty;
+	      henv = HENV.empty; ienv = ENV.empty } in
+  let env = add_builtins env in
   let env = foldl extend_env env prog in
   let hdrs = filter_map just_hdrs prog in
   let _ = map (type_hdr env) hdrs in
@@ -101,7 +113,9 @@ and add_effect_interface env ei =
 and add_hdr env h =
   let name = h.mhdr_name in
   let t = h.mhdr_type in
-  { env with tenv = ENV.add name t env.tenv }
+  { env with tenv = ENV.add name t env.tenv; henv = HENV.add name env.henv }
+
+and is_top_level_hdr env name = HENV.mem name env.henv
 
 and type_hdr env h =
   let name = h.mhdr_name in
@@ -146,13 +160,13 @@ and inst_ctr env ctr =
 and inst env t =
   match t.styp_desc with
   | Styp_rtvar ("£", _) -> env, t
-  | Styp_rtvar (v, _)
+  | Styp_rtvar (v, n)
     -> begin
-         try env, ENV.find v env.tenv with
+         try env, VENV.find n env.venv with
 	 | Not_found ->
 	   let point = Unionfind.fresh (TypExp.fresh_flexi_tvar v) in
 	   let uvar = { styp_desc = Styp_ref point } in
-	   let env = {env with tenv=ENV.add v uvar env.tenv} in
+	   let env = {env with venv=VENV.add n uvar env.venv} in
 	   env, uvar
        end
   | _ -> inst_with inst env t
@@ -191,10 +205,17 @@ and strvar v n = v ^ (string_of_int n)
 
 (** env |- res checks cc *)
 and type_ccomp env res cc =
+  (* Checkable computation is the only syntactic class which does not
+     track the ambient effects so on entry we forget whatever effects
+     were allowed by the environment. *)
+  let env = { env with fenv = [] } in
   match cc, res.styp_desc with
   | Mccomp_cvalue cv, Styp_ret (es, v)
     -> let env = {env with fenv = es} in
        TypExp.returner (type_cvalue env v cv) ~effs:es ()
+  | Mccomp_cvalue cv, Styp_comp ([], r)
+    -> (* Suspended checkable values e.g. {x} *)
+       TypExp.comp (type_ccomp env r cc)
   | Mccomp_clauses [], _ -> type_empty_clause env res
   | Mccomp_clauses cls, _ -> type_clauses env res cls
   | _ , _
@@ -287,7 +308,8 @@ and type_comp_pattern env (t, cp) =
        if length ts = length vs then
 	 let env = foldl type_value_pattern env (zip ts vs) in
 	 let es = TypExp.closed_effect_set in
-	 let arg = TypExp.returner cmd.scmd_res ~effs:es () in
+	 let res = snd (inst env cmd.scmd_res) in
+	 let arg = TypExp.returner res ~effs:es () in
 	 let c = TypExp.comp ~args:[arg] t in
 	 let sc = TypExp.sus_comp c in
 	 { env with tenv = ENV.add r sc env.tenv }
@@ -321,8 +343,7 @@ and type_value_pattern env (t, vp) =
   | _, Svpat_any
     -> env
   | _, Svpat_var x
-    -> let t = snd (inst env t) in
-       Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
+    -> Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
        { env with tenv = ENV.add x t env.tenv }
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
     -> let ctr = unify_ctr env k (length vs) (d, ps) in
@@ -334,7 +355,7 @@ and type_value_pattern env (t, vp) =
 	 | Styp_ftvar _, Svpat_ctr (k, vs)
 	   -> let (d, ps) = find_datatype_from_ctr env k in
 	      let t' = TypExp.datatype d ps in
-	      let _ = unify env t t' in env
+	      let _ = unify t t' in env
 	 | _ , _ -> type_value_pattern env (unbox t, vp)
        end
   | _ , _ -> pattern_error t (Pattern.vpat vp) (* Shouldn't happen *)
@@ -345,18 +366,18 @@ and type_cvalue env res cv =
     -> Debug.print "CV: Attempting to type %s with %s\n"
 	 (ShowMidIValue.show iv) (ShowSrcType.show res);
        let t = type_ivalue env iv in
-       unify env res t
+       unify res t
   | Mcvalue_ctr (k, vs), Styp_datatype (d, ts) -> type_ctr env (k, vs) (d, ts)
   | Mcvalue_thunk cc, Styp_thunk c (** TODO: Add coverage checking *)
-    -> TypExp.sus_comp (type_ccomp env c cc)
+    -> Debug.print "CHECKING THUNK\n"; TypExp.sus_comp (type_ccomp env c cc)
   | _ , Styp_ref pt
     -> begin
          match cv, (unbox res).styp_desc with
 	 | Mcvalue_ctr (k, vs), Styp_ftvar _
 	   -> let (d, ps) = find_datatype_from_ctr env k in
 	      let t = TypExp.datatype d ps in
-	      unify env res t
-	 | _ , _ ->  type_cvalue env (unbox res) cv
+	      unify res t
+	 | _ , _ -> type_cvalue env (unbox res) cv
        end
   | _ , _ -> type_error ("cannot check " ^ ShowMidCValue.show cv ^
 			    " against " ^ ShowSrcType.show res)
@@ -377,7 +398,7 @@ and unify_ctr env k n (d, ps) =
   let res = TypExp.datatype d ps in
   (* Perform unification of the constructor result and overall result type
      expected. *)
-  let _ = unify env r res in
+  let _ = unify r res in
   ctr
 
 and type_ctr env (k, vs) (d, ps) =
@@ -398,11 +419,13 @@ and type_ivalue env iv =
   | Mivalue_var v -> begin
     let t = try ENV.find v env.tenv with
       | Not_found -> type_error ("undefined identifier " ^ v) in
-    let t = inst_hdr env t in
+    let t = if is_top_level_hdr env v then inst_hdr env t else t in
     Debug.print "%s has type %s in env\n" v (ShowSrcType.show (uniq_type t));
     t
                      end
-  | Mivalue_cmd c -> inst_hdr env (type_cmd env c)
+  | Mivalue_cmd c -> Debug.print "COMMAND %s\n" c;
+    let t = inst_hdr env (type_cmd env c) in
+    Debug.print "CMD instantiated to %s\n" (ShowSrcType.show (uniq_type t)); t
   | Mivalue_int _ -> TypExp.int ()
   | Mivalue_bool _ -> TypExp.bool ()
   | Mivalue_icomp ic
@@ -426,7 +449,8 @@ and type_cmd env c =
   let msg = Printf.sprintf "command %s not handled by ambient effects %s"
     c (show_effects es) in
   let (ei, cmd) = find_cmd c eis msg in
-  let ts = (map (fun t -> TypExp.returner t ()) cmd.scmd_args) in
+  let oes = TypExp.effect_var_set in
+  let ts = (map (fun t -> TypExp.returner t ~effs:oes ()) cmd.scmd_args) in
   let r = TypExp.returner cmd.scmd_res ~effs:es () in
   let c = TypExp.comp ~args:ts r in
   let sc = TypExp.sus_comp c in
@@ -508,7 +532,7 @@ and uniq_effect_set xs =
     | _                   , _              -> assert false in
   List.sort_uniq cmp xs
 
-and unify env x y =
+and unify x y =
   let unify_fail x y =
     let msg = Printf.sprintf "failed to unify: %s with %s"
       (ShowSrcType.show x) (ShowSrcType.show y) in
@@ -533,11 +557,11 @@ and unify env x y =
       -> if occur_check xt y then (Unionfind.change px y; true) else false
     | _ , _ -> false (* Handled by unify_concrete *) in
   let unify_concrete x y =
-    let unify' env x y =
-      try let _ = unify env x y in true with
+    let unify' x y =
+      try let _ = unify x y in true with
       | TypeError _ -> false in
     let unify_types xs ys =
-      let f = fun acc (t, t') -> acc && unify' env t t' in
+      let f = fun acc (t, t') -> acc && unify' t t' in
       foldl f true (zip xs ys) in
     (* Order does not matter for effect sets *)
     let unify_effect_sets xs ys =
@@ -545,16 +569,16 @@ and unify env x y =
       let ys = uniq_effect_set ys in
       unify_types xs ys in
     match x.styp_desc, y.styp_desc with
-    | Styp_thunk t          , Styp_thunk t' -> unify' env t t'
+    | Styp_thunk t          , Styp_thunk t' -> unify' t t'
     | Styp_rtvar (v, _)     , Styp_rtvar (v', _) ->
       Debug.print "unifying rigids: %s and %s" v v';
       v = v'
 
     | Styp_comp (ts, t)     , Styp_comp (ts', t')
-      -> unify_types ts ts' && unify' env t t'
+      -> unify_types ts ts' && unify' t t'
 
     | Styp_ret (ts, t)      , Styp_ret (ts', t')
-      -> unify_effect_sets ts ts' && unify' env t t'
+      -> unify_effect_sets ts ts' && unify' t t'
 
     | Styp_datatype (s, ts) , Styp_datatype (s', ts')
     | Styp_effin (s, ts)    , Styp_effin (s', ts')
