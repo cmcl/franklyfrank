@@ -103,9 +103,11 @@ and src_type_desc =
 (* Values *)
   | Styp_datatype of string * src_type list
   | Styp_thunk of src_type
-  | Styp_rtvar of string (* rigid (i.e. user generated) type variable *)
-  | Styp_ftvar of string (* flexible (i.e. unification generated) type
-			    variable *)
+  | Styp_tvar of string (* user generated type variable *)
+  | Styp_rtvar of src_tvar (* rigid (i.e. desugared user generated) type
+			      variable *)
+  | Styp_ftvar of src_tvar (* flexible (i.e. unification generated) type
+			      variable *)
   | Styp_ref of (src_type Unionfind.point)
       (** Unification variable *)
 (* Computations *)
@@ -117,6 +119,8 @@ and src_type_desc =
 (* Builtin types *)
   | Styp_bool
   | Styp_int
+
+and src_tvar = string * int
 
 let string_of_args sep ?(bbegin = true) ?(endd = false) f xs = match xs with
   | [] -> ""
@@ -142,11 +146,15 @@ let rec compare x y =
   | Styp_thunk _, _              -> 1
   | _           , Styp_thunk _   -> -1
 
-  | Styp_rtvar v, Styp_rtvar v'  -> String.compare v v'
+  | Styp_tvar v, Styp_tvar v' -> String.compare v v'
+  | Styp_tvar _, _            -> 1
+  | _          , Styp_tvar _  -> -1
+
+  | Styp_rtvar (_, n), Styp_rtvar (_, n')  -> Pervasives.compare n n'
   | Styp_rtvar _, _              -> 1
   | _           , Styp_rtvar _   -> -1
 
-  | Styp_ftvar v, Styp_ftvar v'  -> String.compare v v'
+  | Styp_ftvar (_, n), Styp_ftvar (_, n')  -> Pervasives.compare n n'
   | Styp_ftvar _, _              -> 1
   | _           , Styp_ftvar _   -> -1
 
@@ -216,8 +224,9 @@ end
 module rec ShowSrcType : SHOW with type t = src_type = struct
   type t = src_type
   let rec show typ = match typ.styp_desc with
-    | Styp_rtvar v -> "{-RIG " ^ v ^ "-}"
-    | Styp_ftvar v -> "{-FLX " ^ v ^ "-}"
+    | Styp_tvar v -> v
+    | Styp_rtvar (v,n) -> "r?" ^ v ^ (string_of_int n)
+    | Styp_ftvar (v,n) -> "f?" ^ v ^ (string_of_int n)
     | Styp_bool -> "Bool"
     | Styp_comp (args, res)
       -> (string_of_args " -> " ~bbegin:false ~endd:true show args) ^ show res

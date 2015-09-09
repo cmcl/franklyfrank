@@ -26,7 +26,8 @@ let translate_with_error prog =
   let ext = function  Merr_not_comp msg -> msg
                     | Merr_inv_clause msg -> msg
                     | Merr_inv_ctr msg -> msg
-                    | Merr_no_main msg -> msg in
+                    | Merr_no_main msg -> msg
+		    | Merr_duplicate_tvar msg -> msg in
   try translate prog with
   | MidTranslate.Error err
     -> fprintf stderr "Translation error: %s\n" (ext err);

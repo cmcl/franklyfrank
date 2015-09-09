@@ -13,10 +13,6 @@ open ParseTree
 open ParseTreeBuilder
 open Printf
 
-let tvar_counter = ref 0
-let fresh_type_variable () =
-  incr tvar_counter; !tvar_counter
-
 module type EVALCOMP = sig
   include MONAD
 
@@ -284,11 +280,15 @@ module EvalComp : EVALCOMP = struct
       -> return (VMultiHandler (fun cs -> eval_mid_clauses env cls cs))
 
   and eval_mid_clauses env cls cs =
-    let tvar = fresh_type_variable () in
+    let t = TypExp.fresh_rigid_tvar "AnonMH" in
+    let n =
+      match t.styp_desc with
+      | Styp_rtvar (_, n) -> n
+      | _ -> assert false in
     let hdr =
       {
-	mhdr_name = "AnonMH" ^ (string_of_int tvar);
-	mhdr_type = TypExp.rigid_tvar("AnonMH" ^ (string_of_int tvar) ^ "T");
+	mhdr_name = "AnonMH" ^ (string_of_int n);
+	mhdr_type = t;
 	mhdr_defs = cls
       }
     in eval_tlhdrs env hdr cs

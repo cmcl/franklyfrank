@@ -86,8 +86,15 @@ end
 module TypExp = struct
   let mk d = { styp_desc = d }
 
-  let rigid_tvar name = mk (Styp_rtvar name)
-  let flexi_tvar name = mk (Styp_ftvar name)
+  let type_variable_counter = ref 0
+  let fresh_tvar () = incr type_variable_counter; !type_variable_counter
+
+  let tvar name = mk (Styp_tvar name)
+  let fresh_rigid_tvar name =
+    let n = fresh_tvar () in mk (Styp_rtvar (name, n))
+  let fresh_flexi_tvar name =
+    let n = fresh_tvar () in mk (Styp_ftvar (name, n))
+
   let datatype name ts = mk (Styp_datatype (name, ts))
   let sus_comp typ_exp = mk (Styp_thunk typ_exp)
 
@@ -102,8 +109,8 @@ module TypExp = struct
 
   (* The one and only effect variable with a special non-parsable name to
      avoid conflicts. *)
-  let effect_var_set = [rigid_tvar "£"]
-  let closed_effect_set = [rigid_tvar "@"]
+  let effect_var_set = [fresh_rigid_tvar "£"]
+  let closed_effect_set = [fresh_rigid_tvar "@"]
 end
 
 module ValueDefn = struct

@@ -150,7 +150,7 @@ opt_type_parameters:
   ;
 
 type_variable:
-  | ID       { TypExp.rigid_tvar $1 }
+  | ID       { TypExp.tvar $1 }
   ;
 
 effect_commands:

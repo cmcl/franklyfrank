@@ -5,6 +5,8 @@
  * Created by Craig McLaughlin on 29/07/2015.
 ***********************************************************************)
 
+val (++) : 'a list -> 'a list -> 'a list
+
 val filter_map : ('a -> 'b option) -> 'a list -> 'b list
  (** [filter_map f as]: Return the elements of [as] for which [f] returned
      a [Some b] for some [b]. In other words, discard the [None]s. *)

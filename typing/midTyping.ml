@@ -145,12 +145,12 @@ and inst_ctr env ctr =
 
 and inst env t =
   match t.styp_desc with
-  | Styp_rtvar "£" -> env, t
-  | Styp_rtvar v
+  | Styp_rtvar ("£", _) -> env, t
+  | Styp_rtvar (v, _)
     -> begin
          try env, ENV.find v env.tenv with
 	 | Not_found ->
-	   let point = Unionfind.fresh (TypExp.flexi_tvar v) in
+	   let point = Unionfind.fresh (TypExp.fresh_flexi_tvar v) in
 	   let uvar = { styp_desc = Styp_ref point } in
 	   let env = {env with tenv=ENV.add v uvar env.tenv} in
 	   env, uvar
@@ -159,7 +159,7 @@ and inst env t =
 
 and inst_effect_var env e =
   match e.styp_desc with
-  | Styp_rtvar "£" -> env.fenv
+  | Styp_rtvar ("£", _) -> env.fenv
   | _ -> [e]
 
 and inst_with f env t =
@@ -172,7 +172,7 @@ and inst_with f env t =
   | Styp_effin (e, ts)
     -> let (env, ts) = map_accum (inst_with f) env ts in
        env, TypExp.effin e ~params:ts ()
-  | Styp_rtvar v -> f env t
+  | Styp_rtvar (v, _) -> f env t
   | Styp_datatype (k, vs)
     -> let (env, vs) = map_accum (inst_with f) env vs in
        env, TypExp.datatype k vs
@@ -185,6 +185,7 @@ and inst_with f env t =
   | Styp_ref _ (* TODO: Possibly incorrect behaviour *)
   | Styp_bool
   | Styp_int -> env, t
+  | Styp_tvar _ -> assert false
 
 and strvar v n = v ^ (string_of_int n)
 
@@ -480,7 +481,8 @@ and free_vars t =
   | Styp_rtvar _ -> [t]
 
   | Styp_bool
-  | Styp_int -> []
+  | Styp_int
+  | Styp_tvar _ -> []
 
 and occur_check x t = not (List.mem x (free_vars t))
 
@@ -495,8 +497,8 @@ and uniq_type t =
 and uniq_effect_set xs =
   let cmp x y = (*Temporary hack for effect var*)
     match x.styp_desc , y.styp_desc with
-    | Styp_rtvar "£"      , _              ->  1
-    | _                   , Styp_rtvar "£" -> -1
+    | Styp_rtvar ("£", _)      , _              ->  1
+    | _                   , Styp_rtvar ("£", _) -> -1
     | Styp_effin (ei, ps) , Styp_effin (ei', ps')
       -> let ei_cmp = String.compare ei ei' in
 	 let t_cmp = compare x y in
@@ -544,7 +546,7 @@ and unify env x y =
       unify_types xs ys in
     match x.styp_desc, y.styp_desc with
     | Styp_thunk t          , Styp_thunk t' -> unify' env t t'
-    | Styp_rtvar v          , Styp_rtvar v' ->
+    | Styp_rtvar (v, _)     , Styp_rtvar (v', _) ->
       Debug.print "unifying rigids: %s and %s" v v';
       v = v'
 

@@ -85,8 +85,9 @@ module TypExp :
     val mk : src_type_desc -> src_type
 
     (* Value type constructors *)
-    val rigid_tvar : string -> src_type
-    val flexi_tvar : string -> src_type
+    val tvar : string -> src_type
+    val fresh_rigid_tvar : string -> src_type
+    val fresh_flexi_tvar : string -> src_type
     val datatype : string -> src_type list -> src_type
     val sus_comp : src_type -> src_type
 

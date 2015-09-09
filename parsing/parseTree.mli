@@ -109,9 +109,11 @@ and src_type_desc =
 (* Values *)
   | Styp_datatype of string * src_type list
   | Styp_thunk of src_type
-  | Styp_rtvar of string (* rigid (i.e. user generated) type variable *)
-  | Styp_ftvar of string (* flexible (i.e. unification generated) type
-			    variable *)
+  | Styp_tvar of string (* user generated type variable *)
+  | Styp_rtvar of src_tvar (* rigid (i.e. desugared user generated) type
+			      variable *)
+  | Styp_ftvar of src_tvar (* flexible (i.e. unification generated) type
+			      variable *)
   | Styp_ref of (src_type Unionfind.point)
       (** Unification variable *)
 (* Computations *)
@@ -123,6 +125,8 @@ and src_type_desc =
 (* Builtin types *)
   | Styp_bool
   | Styp_int
+
+and src_tvar = string * int
 
 (** Show functions *)
 val string_of_args : string -> ?bbegin:bool -> ?endd:bool ->

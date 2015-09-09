@@ -16,6 +16,7 @@ type mid_error =
   | Merr_inv_clause of string
   | Merr_inv_ctr of string
   | Merr_no_main of string
+  | Merr_duplicate_tvar of string
 
 exception Error of mid_error
 

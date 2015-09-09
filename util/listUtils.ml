@@ -1,3 +1,4 @@
+let (++) = List.append
 
 let filter_map f xs =
   let ff x xs = match f x with
