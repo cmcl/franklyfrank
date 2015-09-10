@@ -157,6 +157,11 @@ and inst_ctr env ctr =
   let (_, sctr_res) = inst env ctr.sctr_res in
   { ctr with sctr_args; sctr_res }
 
+and inst_cmd env cmd =
+  let (env, scmd_args) = map_accum inst env cmd.scmd_args in
+  let (_, scmd_res) = inst env cmd.scmd_res in
+  { cmd with scmd_args; scmd_res }
+
 and inst env t =
   match t.styp_desc with
   | Styp_rtvar ("£", _) -> env, t
@@ -305,6 +310,7 @@ and type_comp_pattern env (t, cp) =
        let msg = Printf.sprintf "command %s not handled by %s" c
 	 (ShowSrcType.show t) in
        let (ei, cmd) = find_cmd c es msg in
+       let _ = inst_cmd env cmd in
        let ts = cmd.scmd_args in
        if length ts = length vs then
 	 let env = foldl type_value_pattern env (zip ts vs) in
@@ -425,6 +431,7 @@ and type_ivalue env iv =
     t
                      end
   | Mivalue_cmd c -> Debug.print "COMMAND %s\n" c;
+    (* TODO: I think is is incorrect; only inst. the cmd here? *)
     let t = inst_hdr env (type_cmd env c) in
     Debug.print "CMD instantiated to %s\n" (ShowSrcType.show (uniq_type t)); t
   | Mivalue_int _ -> TypExp.int ()
