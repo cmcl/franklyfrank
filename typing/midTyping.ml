@@ -283,7 +283,8 @@ and type_pattern env (t, p) =
   match t.styp_desc, p.spat_desc with
   | _, Spat_any -> env
   | Styp_ret (es, v), Spat_thunk thk
-    -> { env with tenv = ENV.add thk (TypExp.sus_comp t) env.tenv }
+    -> { env with
+           tenv = ENV.add thk (TypExp.sus_comp (TypExp.comp t)) env.tenv }
   | _, Spat_comp cp -> type_comp_pattern env (t, cp)
   (* Value patterns match value types and the underlying value in returners *)
   | Styp_datatype _, Spat_value vp
@@ -569,11 +570,9 @@ and unify x y =
       let ys = uniq_effect_set ys in
       unify_types xs ys in
     match x.styp_desc, y.styp_desc with
-    | Styp_thunk t          , Styp_thunk t' -> unify' t t'
-    | Styp_rtvar (v, _)     , Styp_rtvar (v', _) ->
-      Debug.print "unifying rigids: %s and %s" v v';
-      v = v'
-
+    | Styp_thunk t          , Styp_thunk t'      -> unify' t t'
+    | Styp_rtvar (v, n)     , Styp_rtvar (v', n') ->
+      Debug.print "unifying rigids: %s%d and %s%d\n" v n v' n'; n = n'
     | Styp_comp (ts, t)     , Styp_comp (ts', t')
       -> unify_types ts ts' && unify' t t'
 

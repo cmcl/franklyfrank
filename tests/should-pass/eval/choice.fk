@@ -42,12 +42,12 @@ maybeResult : [Fail]a -> Maybe a.
 maybeResult x           = Just x.
 maybeResult [fail -> k] = Nothing.
 
-persevere' : {[Fail]a} -> [Fail]a -> a.
-persevere' m x           = x.
-persevere' m [fail -> k] = persevere' m (m!).
+persevere' : {[Fail]a} -> [Fail]a     -> a.
+persevere'       m           x         = x.
+persevere'       m       [fail -> k]   = persevere' m (m!).
 
 persevere : [Fail]a -> a.
-persevere [m] = persevere' m (m!).
+persevere     [m]    = persevere' m (m!).
 
 main : List Bool.
 main = allResults (drunkTosses 3).

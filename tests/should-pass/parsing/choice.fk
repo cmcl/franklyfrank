@@ -10,7 +10,7 @@ append (Cons x xs) ys = Cons x (append xs ys).
 interface Choice = choice : Bool.
 interface Fail   = fail : Zero.
 
-cond : Bool -> {[]a} -> {[]a} -> a.
+cond : Bool -> {a} -> {a} -> a.
 cond true t e  = t!.
 cond false t e = e!.
 
@@ -26,21 +26,11 @@ allResults [fail -> k]   = Nil.
 data Toss = Heads : Toss
           | Tails : Toss.
 
-drunkToss : [Choose, Failure]Toss.
-drunkToss = cond (choice!) {choose Heads Tails} {fail}.
-
-toss : [Choose, Failure]Toss.
+toss : [Choice, Fail]Toss.
 toss = choose Heads Tails.
 
-{-
-heads : Toss
-heads = {Heads};
-
-main : Toss
-main = heads!;
--}
+drunkToss : [Choice, Fail]Toss.
+drunkToss = cond (choice!) toss fail.
 
 main : List Bool.
 main = cond true {Heads} {Tails}.
-
-{-allResults (cond (choice!) Heads Tails);-}
