@@ -160,8 +160,8 @@ let rec compare x y =
 
   | Styp_ref pt , Styp_ref pt'
     -> compare (Unionfind.find pt) (Unionfind.find pt)
-  | Styp_ref _  , _ -> 1
-  | _           , Styp_ref _ -> -1
+  | Styp_ref pt  , _ -> compare (Unionfind.find pt) y
+  | _           , Styp_ref pt -> compare x (Unionfind.find pt)
 
   | Styp_comp (ts, t), Styp_comp (ts', t')
     -> let cmp = compare t t' in
