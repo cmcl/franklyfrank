@@ -2,6 +2,7 @@ open MidTree
 open ParseTree
 open ParseTreeBuilder
 open ListUtils
+open Utility
 
 exception TypeError of string
 
@@ -38,7 +39,7 @@ let type_error msg = raise (TypeError msg)
 
 let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
 let just_eis t =
-  match t.styp_desc with Styp_effin (ei, _) -> Some ei | _ -> None
+  match t.styp_desc with Styp_effin (ei, ts) -> Some (ei, ts) | _ -> None
 
 (* Types of builtin functions. *)
 
@@ -306,11 +307,16 @@ and type_comp_pattern env (t, cp) =
   match t.styp_desc, cp with
   | Styp_ret (es, v), Scpat_request (c, vs, r)
     -> let es = filter_map just_eis es in
-       let es = map (fun ei -> (ei, ENV.find ei env.ienv)) es in
+       let es = map (fun (ei, ts) -> (ei, ts, ENV.find ei env.ienv)) es in
        let msg = Printf.sprintf "command %s not handled by %s" c
 	 (ShowSrcType.show t) in
-       let (ei, cmd) = find_cmd c es msg in
-       let _ = inst_cmd env cmd in
+       let (ei, ets, ps, cmd) = find_cmd c es msg in
+       (* Instantiate the parameters of the interface and the command. *)
+       let (env, ps) = map_accum inst env ps in
+       let cmd = inst_cmd env cmd in
+       (* Unify the instantiated parameters with the arguments provided in the
+	  effect set. *)
+       let _ = map (uncurry unify) (zip ets ps) in
        let ts = cmd.scmd_args in
        if length ts = length vs then
 	 let env = foldl type_value_pattern env (zip ts vs) in
@@ -332,13 +338,13 @@ and find_cmd c es msg =
   | Some x -> x
   | None -> type_error msg
 
-and is_handled c acc (ei, (_, cmds)) =
+and is_handled c acc (ei, ts, (ps, cmds)) =
   match acc with
   | Some x -> acc (* Exit after first find: effect shadowing semantics *)
   | None -> begin
               try
 		let cmd = List.find (fun cmd -> cmd.scmd_name = c) cmds in
-		Some (ei, cmd)
+		Some (ei, ts, ps, cmd)
 	      with
 	      | Not_found -> None
             end
@@ -382,6 +388,7 @@ and type_cvalue env res cv =
          match cv, (unbox res).styp_desc with
 	 | Mcvalue_ctr (k, vs), Styp_ftvar _
 	   -> let (d, ps) = find_datatype_from_ctr env k in
+	      let (_, ps) = map_accum inst env ps in
 	      let t = TypExp.datatype d ps in
 	      unify res t
 	 | _ , _ -> type_cvalue env (unbox res) cv
@@ -453,14 +460,17 @@ and show_effects es = string_of_args ", " ~bbegin:false ShowSrcType.show es
 and type_cmd env c =
   let es = env.fenv in
   let eis = filter_map just_eis es in
-  let eis = map (fun ei -> (ei, ENV.find ei env.ienv)) eis in
+  let eis = map (fun (ei, ts) -> (ei, ts, ENV.find ei env.ienv)) eis in
   let msg = Printf.sprintf "command %s not handled by ambient effects %s"
     c (show_effects es) in
-  let (ei, cmd) = find_cmd c eis msg in
+  let (ei, ts, ps, cmd) = find_cmd c eis msg in
+  let (env, ps) = map_accum inst env ps in
+  let cmd = inst_cmd env cmd in
+  let _ = map (uncurry unify) (zip ts ps) in
   let oes = TypExp.effect_var_set in
-  let ts = (map (fun t -> TypExp.returner t ~effs:oes ()) cmd.scmd_args) in
+  let args = (map (fun t -> TypExp.returner t ~effs:oes ()) cmd.scmd_args) in
   let r = TypExp.returner cmd.scmd_res ~effs:es () in
-  let c = TypExp.comp ~args:ts r in
+  let c = TypExp.comp ~args:args r in
   let sc = TypExp.sus_comp c in
   sc
 
@@ -507,7 +517,7 @@ and free_vars t =
   | Styp_ref p            -> free_vars (Unionfind.find p)
 
   | Styp_comp (ts, t)
-  | Styp_ret (ts, t)      -> (List.flatten (map free_vars ts)) @ free_vars t
+  | Styp_ret (ts, t)      -> (List.flatten (map free_vars ts)) ++ free_vars t
 
   | Styp_ftvar _
   | Styp_rtvar _ -> [t]

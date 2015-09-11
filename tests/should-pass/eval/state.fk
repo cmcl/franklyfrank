@@ -5,8 +5,8 @@ data List a = Nil  :                List a
 
 data Pair a b = Pair : a -> b -> Pair a b.
 
-interface State s = get : s
-	          | put : s -> Unit.
+interface State x = get : x
+	          | put : x -> Unit.
 
 
 bind : a -> {a -> b} -> b.
@@ -33,6 +33,7 @@ logState s [get -> k] = logState s (k s).
 toggle : [State Bool]Bool.
 toggle = bind (get!) {x -> semi (put (not x)) x}.
 
-main : Bool.
+main : Pair Bool (List Bool).
 main = logState true (toggle!).
+{- main : Bool. -}
 {- main = evalState true (toggle!). -}
