@@ -1,0 +1,28 @@
+Current status: ALL tests to the right thing; either pass if they
+"should-pass" or fail if they "should-fail".
+
+Parser
+------
+
+The parser is a kludge. The dream is to have Haskell-like syntax but this is
+only possible with some egregious delimiters strewn about the source.
+
+Typechecker
+-----------
+
+Uses unionfind structure to perform instantiation and unification. The
+implementation differs from the draft paper presentation in that instantiation
+and unification is performed in several places rather than just one place
+(inferring a polymorphic variable for the case of instantiation, and inferring
+an inferable value in the case of unification).
+
+It would be interesting to code up an alternative typechecker to see if it
+could be made cleaner. The style I have in mind follows Gundry's thesis of a
+type inference algorithm for Hindley-Milner which uses ordered contexts to
+capture the metavariables and their dependencies. I believe McBride's initial
+implementation of Frank in Haskell follows this approach.
+
+Evaluator
+---------
+
+A denotational semantics written in monadic style.
