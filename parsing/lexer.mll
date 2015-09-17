@@ -44,6 +44,7 @@ rule token = parse
   | "->"      { RARROW }
   | '.'       { DOT }
   | ','       { COMMA }
+  | '"'       { read_string (Buffer.create 20) lexbuf }
   | '_'       { UNDERSCORE }
   | uppercase alphanumeric* { UID (Lexing.lexeme lexbuf) }
   | id        { ID (Lexing.lexeme lexbuf) }
@@ -58,3 +59,15 @@ and comment = parse
   | newline   { new_line lexbuf; comment lexbuf }
   | _ { comment lexbuf }
   | eof { raise (SyntaxError ("Comment not terminated.")) }
+
+and read_string buf = parse
+  | '"'               { STRLIT (Buffer.contents buf) }
+  | '\\' '\\'         { Buffer.add_char buf '\\'; read_string buf lexbuf }
+  | '\\' '\n'         { Buffer.add_char buf '\n'; read_string buf lexbuf }
+  | '\\' '\r'         { Buffer.add_char buf '\r'; read_string buf lexbuf }
+  | '\\' '\t'         { Buffer.add_char buf '\t'; read_string buf lexbuf }
+  | [^ '"' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf);
+			read_string buf lexbuf }
+  | _                 { raise (SyntaxError ("Illegal string character " ^
+					       Lexing.lexeme lexbuf)) }
+  | eof               { raise (SyntaxError ("Non-terminating string")) }

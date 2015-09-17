@@ -204,7 +204,8 @@ and inst_with f env t =
   | Styp_ftvar _ (* Will never be outside a ref *)
   | Styp_ref _ (* TODO: Possibly incorrect behaviour *)
   | Styp_bool
-  | Styp_int -> env, t
+  | Styp_int
+  | Styp_str -> env, t
   | Styp_tvar _ -> assert false
 
 and strvar v n = v ^ (string_of_int n)
@@ -298,6 +299,7 @@ and type_pattern env (t, p) =
   | Styp_rtvar _, Spat_value vp
   | Styp_bool, Spat_value vp
   | Styp_int, Spat_value vp
+  | Styp_str, Spat_value vp
     -> type_value_pattern env (t, vp)
   | Styp_ret (es, v), Spat_value vp
     -> type_value_pattern env (v, vp)
@@ -353,6 +355,7 @@ and type_value_pattern env (t, vp) =
   match t.styp_desc, vp with
   | Styp_bool, Svpat_bool _
   | Styp_int, Svpat_int _
+  | Styp_str, Svpat_str _
   | _, Svpat_any
     -> env
   | _, Svpat_var x
@@ -443,6 +446,7 @@ and type_ivalue env iv =
     Debug.print "CMD instantiated to %s\n" (ShowSrcType.show (uniq_type t)); t
   | Mivalue_int _ -> TypExp.int ()
   | Mivalue_bool _ -> TypExp.bool ()
+  | Mivalue_str _ -> TypExp.str ()
   | Mivalue_icomp ic
     -> let t = type_icomp env ic in
        begin (* Check the ambient effects agrees with returner type. *)
@@ -524,6 +528,7 @@ and free_vars t =
 
   | Styp_bool
   | Styp_int
+  | Styp_str
   | Styp_tvar _ -> []
 
 and occur_check x t = not (List.mem x (free_vars t))
@@ -601,7 +606,8 @@ and unify x y =
       -> s = s' && unify_types ts ts'
 
     | Styp_bool             , Styp_bool
-    | Styp_int              , Styp_int      -> true
+    | Styp_int              , Styp_int      
+    | Styp_str              , Styp_str      -> true
     | _                     , _             -> unify_fail x y in
   let is_ref x = match x.styp_desc with Styp_ref _ -> true | _ -> false in
   match is_ref x, is_ref y with

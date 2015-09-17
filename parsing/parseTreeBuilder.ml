@@ -56,6 +56,8 @@ module IValue = struct
 
   let boolean b = IValue_bool b
 
+  let str s = IValue_str s
+
   let icomp ic = IValue_icomp ic
 end
 
@@ -106,6 +108,7 @@ module TypExp = struct
 
   let bool () = mk (Styp_bool)
   let int () = mk (Styp_int)
+  let str () = mk (Styp_str)
 
   (* The one and only effect variable with a special non-parsable name to
      avoid conflicts. *)
@@ -134,6 +137,7 @@ module Pattern = struct
   let var name = Svpat_var name
   let integer n = Svpat_int n
   let boolean b = Svpat_bool b
+  let str s = Svpat_str s
   let ctr name ?(pats = []) () = Svpat_ctr (name, pats)
 
   let request name ?(pats = []) cont = Scpat_request (name, pats, cont)

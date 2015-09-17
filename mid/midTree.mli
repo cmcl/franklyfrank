@@ -48,6 +48,7 @@ and mid_ivalue =
   | Mivalue_cmd of string
   | Mivalue_int of int
   | Mivalue_bool of bool
+  | Mivalue_str of string
   | Mivalue_icomp of mid_icomputation
 
 and mid_icomputation =

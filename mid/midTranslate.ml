@@ -100,7 +100,7 @@ let rec refine_vpat st vp =
     -> if CtrSet.mem v st.ctrs then Svpat_ctr (v, []) else vp   
   | Svpat_ctr (k, ps)
     -> let ps' = List.map (refine_vpat st) ps in Svpat_ctr (k, ps')
-  | Svpat_any | Svpat_int _ | Svpat_bool _ -> vp
+  | Svpat_any | Svpat_int _ | Svpat_bool _ | Svpat_str _ -> vp
 
 let refine_cpat st cp =
   match cp with
@@ -138,6 +138,7 @@ and translate_ivalue st iv =
 	Mivalue_var v
   | IValue_int n -> Mivalue_int n
   | IValue_bool b -> Mivalue_bool b
+  | IValue_str s -> Mivalue_str s
   | IValue_icomp ic
     -> Mivalue_icomp (translate_icomp st ic)
 
@@ -227,8 +228,9 @@ let rec desugar_type' env t =
 		       let rtvar = TypExp.fresh_rigid_tvar v in
 		       ENV.add v rtvar env, rtvar
                    end
-  | Styp_datatype ("Int", [])  -> env, TypExp.int ()
-  | Styp_datatype ("Bool", []) -> env, TypExp.bool ()
+  | Styp_datatype ("Int", [])    -> env, TypExp.int ()
+  | Styp_datatype ("Bool", [])   -> env, TypExp.bool ()
+  | Styp_datatype ("String", []) -> env, TypExp.str ()
   | Styp_datatype (d, ps)
     -> let (env, ps) = map_accum desugar_type' env ps in
        env, TypExp.datatype d ps

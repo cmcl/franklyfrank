@@ -25,7 +25,8 @@ and inferable_value =
       (** Could be a monovar, polyvar or effect signature. *)
   | IValue_int of int
   | IValue_bool of bool
-  (** Int/Bool literals *)
+  | IValue_str of string
+  (** Int/Bool/String literals *)
   | IValue_icomp of inferable_computation
 
 and inferable_computation =
@@ -50,7 +51,8 @@ and value_pattern =
   | Svpat_var of string
   | Svpat_int of int
   | Svpat_bool of bool
-   (** Int/Bool literals *)
+  | Svpat_str of string
+   (** Int/Bool/String literals *)
   | Svpat_ctr of string * value_pattern list
 
 and value_definition =
@@ -119,6 +121,7 @@ and src_type_desc =
 (* Builtin types *)
   | Styp_bool
   | Styp_int
+  | Styp_str
 
 and src_tvar = string * int
 
@@ -194,7 +197,11 @@ let rec compare x y =
   | Styp_bool , _         -> 1
   | _         , Styp_bool -> -1
 
-  | Styp_int  , Styp_int -> 0
+  | Styp_int , Styp_int -> 0
+  | Styp_int , _         -> 1
+  | _         , Styp_int -> -1
+
+  | Styp_str  , Styp_str -> 0
 
 
 (** Show functions *)
@@ -217,6 +224,7 @@ module ShowPattern : SHOW with type t = pattern = struct
     | Svpat_var v -> v
     | Svpat_int n -> string_of_int n
     | Svpat_bool b -> string_of_bool b
+    | Svpat_str s -> "\"" ^ s ^ "\""
     | Svpat_ctr (k, ps)
       -> "(" ^ k ^ (string_of_args " " vshow ps) ^ ")"
 end
@@ -239,6 +247,7 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
       -> "[" ^ (String.concat ", " (List.map show effs)) ^ "]" ^ (show res)
     | Styp_thunk c -> "{" ^ show c ^ "}"
     | Styp_ref t -> "|" ^ show (Unionfind.find t) ^ "|"
+    | Styp_str -> "String"
 end
 
 and ShowDatatype : SHOW with type t = datatype_declaration = struct
