@@ -73,7 +73,7 @@ module EvalComp : EVALCOMP = struct
     match v with
     | VBool b -> string_of_bool b
     | VInt n -> string_of_int n
-    | VStr s -> "\"" ^ s ^ "\""
+    | VStr s -> "\"" ^ (String.escaped s) ^ "\""
     | VCon ("Nil", []) -> "[]"
     | VCon ("Cons", vs) ->
       let rec show_vs =

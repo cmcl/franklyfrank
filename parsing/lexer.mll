@@ -63,9 +63,9 @@ and comment = parse
 and read_string buf = parse
   | '"'               { STRLIT (Buffer.contents buf) }
   | '\\' '\\'         { Buffer.add_char buf '\\'; read_string buf lexbuf }
-  | '\\' '\n'         { Buffer.add_char buf '\n'; read_string buf lexbuf }
-  | '\\' '\r'         { Buffer.add_char buf '\r'; read_string buf lexbuf }
-  | '\\' '\t'         { Buffer.add_char buf '\t'; read_string buf lexbuf }
+  | '\\' 'n'         { Buffer.add_char buf '\n'; read_string buf lexbuf }
+  | '\\' 'r'         { Buffer.add_char buf '\r'; read_string buf lexbuf }
+  | '\\' 't'         { Buffer.add_char buf '\t'; read_string buf lexbuf }
   | [^ '"' '\\']+     { Buffer.add_string buf (Lexing.lexeme lexbuf);
 			read_string buf lexbuf }
   | _                 { raise (SyntaxError ("Illegal string character " ^

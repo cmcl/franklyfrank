@@ -224,7 +224,7 @@ module ShowPattern : SHOW with type t = pattern = struct
     | Svpat_var v -> v
     | Svpat_int n -> string_of_int n
     | Svpat_bool b -> string_of_bool b
-    | Svpat_str s -> "\"" ^ s ^ "\""
+    | Svpat_str s -> "\"" ^ (String.escaped s) ^ "\""
     | Svpat_ctr (k, ps)
       -> "(" ^ k ^ (string_of_args " " vshow ps) ^ ")"
 end

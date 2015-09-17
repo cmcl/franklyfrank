@@ -11,4 +11,4 @@ runState   x    [get    -> k] =  runState x  (k x).
 runState   x          y       =  y.
 
 main : String.
-main = runState "Hello World!" (get!).
+main = runState "Hello World!\n" (get!).
