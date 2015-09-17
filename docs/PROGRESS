@@ -1,4 +1,4 @@
-Current status: ALL tests to the right thing; either pass if they
+Current status: ALL tests do the right thing; either pass if they
 "should-pass" or fail if they "should-fail".
 
 Parser
