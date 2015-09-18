@@ -64,14 +64,24 @@ let plus_type =
   let r = TypExp.returner (TypExp.int ()) ~effs:oes () in
   TypExp.sus_comp (TypExp.comp ~args:ts r)
 
+let strcat_type =
+  let oes = TypExp.effect_var_set in
+  let arg = TypExp.returner (TypExp.str ()) ~effs:oes () in
+  let ts = [arg; arg] in
+  let r = TypExp.returner (TypExp.str ()) ~effs:oes () in
+  TypExp.sus_comp (TypExp.comp ~args:ts r)
+
 let add_builtins env =
   let tenv = ENV.add "plus" plus_type
     (ENV.add "minus" minus_type
-       (ENV.add "gt" gt_type env.tenv)) in
+       (ENV.add "gt" gt_type
+	  (ENV.add "strcat" strcat_type env.tenv))) in
   { env
     with
       tenv = tenv;
-      henv = HENV.add "plus" (HENV.add "gt" (HENV.add "minus" env.henv)) }
+      henv = HENV.add "plus" (HENV.add "gt"
+				(HENV.add "strcat"
+				   (HENV.add "minus" env.henv))) }
 
 let rec type_prog prog =
   let fenv = get_main_effect_set prog in
@@ -234,7 +244,8 @@ and destruct_comp_type t =
   match t.styp_desc with
   | Styp_thunk thk -> destruct_comp_type thk
   | Styp_comp (args, res) -> (args, res)
-  |        _     -> type_error ("incorrect handler type")
+  |        _     -> type_error ("incorrect handler type was:" ^
+				   (ShowSrcType.show (uniq_type t)))
 
 and type_empty_clause env res =
   match res.styp_desc with
@@ -441,8 +452,7 @@ and type_ivalue env iv =
     t
                      end
   | Mivalue_cmd c -> Debug.print "COMMAND %s\n" c;
-    (* TODO: I think is is incorrect; only inst. the cmd here? *)
-    let t = inst_hdr env (type_cmd env c) in
+    let t = type_cmd env c in
     Debug.print "CMD instantiated to %s\n" (ShowSrcType.show (uniq_type t)); t
   | Mivalue_int _ -> TypExp.int ()
   | Mivalue_bool _ -> TypExp.bool ()
@@ -471,7 +481,7 @@ and type_cmd env c =
   let (env, ps) = map_accum inst env ps in
   let cmd = inst_cmd env cmd in
   let _ = map (uncurry unify) (zip ts ps) in
-  let oes = TypExp.effect_var_set in
+  let oes = List.flatten (map (inst_effect_var env) TypExp.effect_var_set) in
   let args = (map (fun t -> TypExp.returner t ~effs:oes ()) cmd.scmd_args) in
   let r = TypExp.returner cmd.scmd_res ~effs:es () in
   let c = TypExp.comp ~args:args r in
@@ -490,7 +500,8 @@ and dct t =
       |  _ -> type_error ("incorrect handler type")
     end
   | Styp_datatype _ -> Debug.print "It's a datatype\n";
-  |        _     -> type_error ("incorrect handler type")
+  |        _     -> type_error ("incorrect handler type was:" ^
+				   (ShowSrcType.show t))
 
 and type_icomp env ic =
   match ic with
@@ -533,12 +544,15 @@ and free_vars t =
 
 and occur_check x t = not (List.mem x (free_vars t))
 
-(* Perform effect set uniqueness at the type-level. Useful for debugging. *)
+(* Perform effect set uniqueness at the type-level. Only used for debugging.*)
 and uniq_type t =
   match t.styp_desc with
   | Styp_thunk { styp_desc = Styp_comp (ts, t) }
     -> TypExp.sus_comp (TypExp.comp ~args:(map uniq_type ts) (uniq_type t))
   | Styp_ret (es, v) -> TypExp.returner v ~effs:(uniq_effect_set es) ()
+  | Styp_ref pt -> let t' = uniq_type (Unionfind.find pt) in
+		   let p = Unionfind.fresh t' in
+		   {styp_desc = Styp_ref p}
   |  _ -> t
 
 and uniq_effect_set xs =

@@ -196,9 +196,16 @@ module EvalComp : EVALCOMP = struct
                | _ as vy -> invalid_arg ("second_arg:" ^ vshow vy))
             | _ as vx -> invalid_arg ("first arg:" ^ vshow vx)
 
+  let strcatdef env [cx; cy] = cx >>=
+    function (VStr x) -> cy >>=
+      (function (VStr y) -> return (VStr (x ^ y))
+               | _ as vy -> invalid_arg ("second arg:" ^ vshow vy))
+            | _ as vx -> invalid_arg ("first arg:" ^ vshow vx)
+
   (** Create the builtin environment. *)
   let get_builtins () =
-    let blts = [("gt", gtdef); ("minus", minusdef); ("plus", plusdef)] in
+    let blts = [("gt", gtdef); ("minus", minusdef); ("plus", plusdef);
+	        ("strcat", strcatdef)] in
     let add_blt (n,d) env = ENV.add n d env in
     List.fold_right add_blt blts ENV.empty
 
