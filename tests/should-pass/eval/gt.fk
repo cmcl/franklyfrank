@@ -1,5 +1,3 @@
-data Unit = Unit : Unit.
-
 interface State x = get : x
 	          | put : x -> Unit.
 

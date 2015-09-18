@@ -3,8 +3,6 @@ data List x = Nil  : x
 
 data Zero =.
 
-data Unit = Unit : Unit.
-
 append : (List x) -> (List x) -> (List x).
 append Nil          ys = ys.
 append (Cons ax xs) ys = Cons ax (append xs ys).

@@ -1,0 +1,2 @@
+main : [Console]Unit.
+main = putStrLn "Hello, World!".

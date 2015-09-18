@@ -169,11 +169,6 @@ module EvalComp : EVALCOMP = struct
 
   let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
 
-  let disjoint hmap (n, _) =
-    match HandlerMap.mem n hmap with
-    | true -> raise (UserDefShadowingBuiltin n)
-    | _ -> ()
-
   (** Anonymous handler counter *)
   let anonhdr = ref 0
 
@@ -218,7 +213,23 @@ module EvalComp : EVALCOMP = struct
 	return (VMultiHandler (fun cs -> f (Lazy.force env') cs))) pre_env) in
     let env = Lazy.force env' in
     let main = ENV.find "main" env in
-    main >>= function VMultiHandler f -> f [] | _ -> not_hdr ~desc:"main" ()
+    main >>= function VMultiHandler f -> rts (f [])
+                     |      _         -> not_hdr ~desc:"main" ()
+
+  (* The runtime system handles some commands such as I/O. *)
+  and rts m =
+    match m with
+    | Command _ -> handle_builtin_cmds m
+    | Return v -> m
+
+  and handle_builtin_cmds m =
+    match m with
+    | Command ("putStr",   [VStr s], _) -> print_string s;
+                                           return (VCon ("Unit", []))
+    | Command ("putStrLn", [VStr s], _) -> print_endline s;
+                                           return (VCon ("Unit", []))
+    | Command ("getStr",   [],  _)      -> return (VStr (read_line ()))
+    |    _     -> assert false (* Command not handled *)
 
   and construct_env_entry hdr env =
     if ENV.mem hdr.mhdr_name env then

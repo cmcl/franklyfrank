@@ -41,6 +41,22 @@ let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
 let just_eis t =
   match t.styp_desc with Styp_effin (ei, ts) -> Some (ei, ts) | _ -> None
 
+(* Builtin datatypes. *)
+
+let unit_datatype =
+  let ctr = Datatype.constr_decl "Unit" (TypExp.datatype "Unit" []) in
+  ([], [ctr])
+
+(* Builtin effect interfaces. *)
+
+let console_interface =
+  let put_str = EffInterface.cmd_decl "putStr" ~args:[TypExp.str ()]
+    (TypExp.datatype "Unit" []) in
+  let put_str_ln = EffInterface.cmd_decl "putStrLn" ~args:[TypExp.str ()]
+    (TypExp.datatype "Unit" []) in
+  let get_str = EffInterface.cmd_decl "getStr" (TypExp.str ()) in
+  ([], [put_str; put_str_ln; get_str])
+
 (* Types of builtin functions. *)
 
 let gt_type =
@@ -76,12 +92,16 @@ let add_builtins env =
     (ENV.add "minus" minus_type
        (ENV.add "gt" gt_type
 	  (ENV.add "strcat" strcat_type env.tenv))) in
+  let denv = ENV.add "Unit" unit_datatype env.denv in
+  let ienv = ENV.add "Console" console_interface env.ienv in
   { env
     with
-      tenv = tenv;
+      tenv;
+      denv;
       henv = HENV.add "plus" (HENV.add "gt"
 				(HENV.add "strcat"
-				   (HENV.add "minus" env.henv))) }
+				   (HENV.add "minus" env.henv)));
+      ienv }
 
 let rec type_prog prog =
   let fenv = get_main_effect_set prog in

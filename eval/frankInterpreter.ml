@@ -23,11 +23,12 @@ let parse_with_error lexbuf =
     exit (-1)
 
 let translate_with_error prog =
-  let ext = function  Merr_not_comp msg -> msg
-                    | Merr_inv_clause msg -> msg
-                    | Merr_inv_ctr msg -> msg
-                    | Merr_no_main msg -> msg
-		    | Merr_duplicate_tvar msg -> msg in
+  let ext = function  Merr_not_comp msg
+                    | Merr_inv_clause msg
+                    | Merr_inv_ctr msg
+                    | Merr_no_main msg
+                    | Merr_duplicate_tvar msg
+                    | Merr_shadowing_builtin msg -> msg in
   try translate prog with
   | MidTranslate.Error err
     -> fprintf stderr "Translation error: %s\n" (ext err);

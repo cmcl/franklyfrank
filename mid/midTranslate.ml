@@ -10,6 +10,7 @@ type mid_error =
   | Merr_inv_ctr of string
   | Merr_no_main of string
   | Merr_duplicate_tvar of string
+  | Merr_shadowing_builtin of string
 
 exception Error of mid_error
 
@@ -33,6 +34,9 @@ let no_main () = raise (Error (Merr_no_main "No main function defined."))
 let duplicate_tvar msg =
   raise (Error (Merr_duplicate_tvar
 		  ("Duplicate type variable detected:" ^ msg)))
+
+let shadowing_builtin msg =
+  raise (Error (Merr_shadowing_builtin (msg ^ " shadows builtin.")))
 
 module type HMS = sig
   include Map.S with type key := string
@@ -311,16 +315,39 @@ let merge dts eis hmap =
     List.map (fun ei -> Mtld_effin ei) eis ++
     get_hdrs hmap
 
+let disjoint_from_builtin_datatypes dt =
+  let module M = Set.Make(String) in
+  let env = M.add "Unit" M.empty in
+  let name = dt.sdt_name in
+  if M.mem name env then shadowing_builtin ("datatype " ^ name)
+  else ()
+
+let disjoint_from_builtin_interfaces ei =
+  let module M = Set.Make(String) in
+  let env = M.add "Console" M.empty in
+  let name = ei.sei_name in
+  if M.mem name env then shadowing_builtin ("effect interface " ^ name)
+  else ()
+
+(* Builtin constructors *)
+let builtin_ctrs = CtrSet.M.add "Unit" CtrSet.empty
+
+(* Builtin commands *)
+let builtin_cmds = CmdSet.M.add "putStr"
+  (CmdSet.M.add "putStrLn" (CmdSet.M.add "getStr" CmdSet.empty))
+
 (** Main translation function. *)
 
 let translate prog =
   let (dts, eis, decls, defs) = partition prog in
+  let _ = List.iter disjoint_from_builtin_datatypes dts in
+  let _ = List.iter disjoint_from_builtin_interfaces eis in
   let dts = map desugar_datatype dts in
   let eis = map desugar_effect_interface eis in
   let ctrs = List.flatten (List.map (fun dt -> dt.sdt_constructors) dts) in
   let cmds = List.flatten (List.map (fun ei -> ei.sei_commands) eis) in
-  let ctrs = List.fold_left add_ctr CtrSet.empty ctrs in
-  let cmds = List.fold_left add_cmd CmdSet.empty cmds in
+  let ctrs = List.fold_left add_ctr builtin_ctrs ctrs in
+  let cmds = List.fold_left add_cmd builtin_cmds cmds in
   let state = { def_name = ""; ctrs; cmds } in
   let defs = make_hdr_defs state decls defs in
   let hmap = List.fold_left add_def HandlerMap.empty defs in
