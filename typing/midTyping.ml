@@ -298,7 +298,8 @@ and unbox t =
 
 and type_clauses env t cls =
   let (ts, r) = destruct_comp_type t in
-  foldl (type_clause env ts) r cls
+  let _ = foldl (type_clause env ts) r cls in
+  t
 
 and type_clause env ts r (ps, cc) =
   Debug.print "%s with %s\n"
@@ -331,6 +332,7 @@ and type_pattern env (t, p) =
   | Styp_bool, Spat_value vp
   | Styp_int, Spat_value vp
   | Styp_str, Spat_value vp
+  | Styp_ref _, Spat_value vp
     -> type_value_pattern env (t, vp)
   | Styp_ret (es, v), Spat_value vp
     -> type_value_pattern env (v, vp)
@@ -425,6 +427,20 @@ and type_cvalue env res cv =
 	      let (_, ps) = map_accum inst env ps in
 	      let t = TypExp.datatype d ps in
 	      unify res t
+	 | Mcvalue_thunk (Mccomp_clauses ((ps,_) :: _) as cc), Styp_ftvar _
+	   -> let fresh_ref s =
+		TypExp.mk (Styp_ref (Unionfind.fresh
+				       (TypExp.fresh_flexi_tvar s))) in
+	      let xs = map (fun _ -> fresh_ref "x") ps in
+	      let y = fresh_ref "y" in
+	      (* Generate the required type for checking against a thunk. *)
+	      let t = TypExp.sus_comp (TypExp.comp ~args:xs y) in
+	      (* Unify the existing flexible against this more complex
+		 flexible type variable. *)
+	      let _ = unify res t in
+	      (* Typecheck the computation newly generated flexible type
+		 variables. *)
+	      TypExp.sus_comp (type_ccomp env t cc)
 	 | _ , _ -> type_cvalue env (unbox res) cv
        end
   | _ , _ -> type_error ("cannot check " ^ ShowMidCValue.show cv ^

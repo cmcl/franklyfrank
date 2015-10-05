@@ -1,0 +1,19 @@
+data List x = Nil  : x
+            | Cons : x -> (List x) -> (List x).
+
+map : {a -> b} -> (List a)  -> (List b).
+map      f           Nil     = Nil.
+map      f       (Cons x xs) = Cons (f x) (map f xs).
+
+semi : x -> y -> y.
+semi   x    y  = y.
+
+main : [Console]List Int.
+main = map (semi (putStrLn "Hello, World!") {x -> plus x 1})
+       	   (Cons 1 (Cons 2 (Cons 3 Nil))).
+{-
+   Expected output:
+   ----------------
+   Hello, World!
+   [1, 2, 3]
+-}
