@@ -114,6 +114,7 @@ module TypExp = struct
      avoid conflicts. *)
   let effect_var_set = [fresh_rigid_tvar "£"]
   let closed_effect_set = [fresh_rigid_tvar "@"]
+  let eff_set xs = mk (Styp_eff_set xs)
 end
 
 module ValueDefn = struct

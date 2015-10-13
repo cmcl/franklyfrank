@@ -108,6 +108,8 @@ module TypExp :
     (* Effect sets *)
     val effect_var_set : src_type list
     val closed_effect_set : src_type list
+    (* Wrapper over effect sets for unifying with flexible tvars. *)
+    val eff_set : src_type list -> src_type
   end
 
 (** Value definitions *)

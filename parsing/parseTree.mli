@@ -116,6 +116,8 @@ and src_type_desc =
 			      variable *)
   | Styp_ftvar of src_tvar (* flexible (i.e. unification generated) type
 			      variable *)
+  | Styp_eff_set of src_type list (* set of effects: used for unifying
+				     flexible effect sets *)
   | Styp_ref of (src_type Unionfind.point)
       (** Unification variable *)
 (* Computations *)

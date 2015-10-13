@@ -110,6 +110,8 @@ and src_type_desc =
 			      variable *)
   | Styp_ftvar of src_tvar (* flexible (i.e. unification generated) type
 			      variable *)
+  | Styp_eff_set of src_type list (* set of effects: used for unifying
+				     flexible effect sets *)
   | Styp_ref of (src_type Unionfind.point)
       (** Unification variable *)
 (* Computations *)
@@ -160,6 +162,13 @@ let rec compare x y =
   | Styp_ftvar (_, n), Styp_ftvar (_, n')  -> Pervasives.compare n n'
   | Styp_ftvar _, _              -> 1
   | _           , Styp_ftvar _   -> -1
+
+  | Styp_eff_set es, Styp_eff_set es'
+    -> let cmp = Pervasives.compare (length es) (length es') in
+       if cmp != 0 then cmp
+       else foldl (uncurry @ f) 0 (zip es es')
+  | Styp_eff_set _, _              -> 1
+  | _             , Styp_eff_set _ -> -1
 
   | Styp_ref pt , Styp_ref pt'
     -> compare (Unionfind.find pt) (Unionfind.find pt)
@@ -235,6 +244,7 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
     | Styp_tvar v -> v
     | Styp_rtvar (v,n) -> "r?" ^ v ^ (string_of_int n)
     | Styp_ftvar (v,n) -> "f?" ^ v ^ (string_of_int n)
+    | Styp_eff_set es -> "[" ^ String.concat ", " (List.map show es) ^ "]"
     | Styp_bool -> "Bool"
     | Styp_comp (args, res)
       -> (string_of_args " -> " ~bbegin:false ~endd:true show args) ^ show res

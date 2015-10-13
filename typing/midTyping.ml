@@ -232,11 +232,23 @@ and inst_with f env t =
        let (env, r) = inst_with f env r in
        env, TypExp.comp ~args:ts r
   | Styp_ftvar _ (* Will never be outside a ref *)
+  | Styp_eff_set _ (* Will never be outside a ref *)
   | Styp_ref _ (* TODO: Possibly incorrect behaviour *)
   | Styp_bool
   | Styp_int
   | Styp_str -> env, t
   | Styp_tvar _ -> assert false
+
+(* Create a fresh reference to a fresh flexible type variable. *)
+and fresh_ref s =
+  TypExp.mk (Styp_ref (Unionfind.fresh
+			 (TypExp.fresh_flexi_tvar s)))
+
+(* Create a fresh returner shape from fresh flexible type variables. *)
+and fresh_returner () =
+  let es = fresh_ref "es" in
+  let v = fresh_ref "v" in
+  TypExp.returner v ~effs:[es] ()
 
 and strvar v n = v ^ (string_of_int n)
 
@@ -253,6 +265,19 @@ and type_ccomp env res cc =
   | Mccomp_cvalue cv, Styp_comp ([], r)
     -> (* Suspended checkable values e.g. {x} *)
        TypExp.comp (type_ccomp env r cc)
+  | Mccomp_cvalue cv, Styp_ref pt
+    -> begin
+         match (unbox res).styp_desc with
+	 | Styp_ftvar _ ->
+	   let t = fresh_returner () in
+	   let _ = unify res t in
+	   type_ccomp env t cc
+	 | _
+	   -> type_error
+	   (Printf.sprintf
+	      "failed to typecheck checkable value %s against flexible %s"
+	      (ShowMidCValue.show cv) (ShowSrcType.show res))
+       end
   | Mccomp_clauses [], _ -> type_empty_clause env res
   | Mccomp_clauses cls, _ -> type_clauses env res cls
   | _ , _
@@ -415,6 +440,8 @@ and type_cvalue env res cv =
     -> Debug.print "CV: Attempting to type %s with %s\n"
 	 (ShowMidIValue.show iv) (ShowSrcType.show res);
        let t = type_ivalue env iv in
+       Debug.print "Unifying %s with %s\n" (ShowSrcType.show res)
+	 (ShowSrcType.show t);
        unify res t
   | Mcvalue_ctr (k, vs), Styp_datatype (d, ts) -> type_ctr env (k, vs) (d, ts)
   | Mcvalue_thunk cc, Styp_thunk c (** TODO: Add coverage checking *)
@@ -428,11 +455,8 @@ and type_cvalue env res cv =
 	      let t = TypExp.datatype d ps in
 	      unify res t
 	 | Mcvalue_thunk (Mccomp_clauses ((ps,_) :: _) as cc), Styp_ftvar _
-	   -> let fresh_ref s =
-		TypExp.mk (Styp_ref (Unionfind.fresh
-				       (TypExp.fresh_flexi_tvar s))) in
-	      let xs = map (fun _ -> fresh_ref "x") ps in
-	      let y = fresh_ref "y" in
+	   -> let xs = map (fun _ -> fresh_returner ()) ps in
+	      let y = fresh_returner () in
 	      (* Generate the required type for checking against a thunk. *)
 	      let t = TypExp.sus_comp (TypExp.comp ~args:xs y) in
 	      (* Unify the existing flexible against this more complex
@@ -505,14 +529,14 @@ and type_ivalue env iv =
 		type_error msg
        end
 
-and show_effects es = string_of_args ", " ~bbegin:false ShowSrcType.show es
+and show_types ts = string_of_args ", " ~bbegin:false ShowSrcType.show ts
 
 and type_cmd env c =
   let es = env.fenv in
   let eis = filter_map just_eis es in
   let eis = map (fun (ei, ts) -> (ei, ts, ENV.find ei env.ienv)) eis in
   let msg = Printf.sprintf "command %s not handled by ambient effects %s"
-    c (show_effects es) in
+    c (show_types es) in
   let (ei, ts, ps, cmd) = find_cmd c eis msg in
   let (env, ps) = map_accum inst env ps in
   let cmd = inst_cmd env cmd in
@@ -570,6 +594,8 @@ and free_vars t =
   | Styp_comp (ts, t)
   | Styp_ret (ts, t)      -> (List.flatten (map free_vars ts)) ++ free_vars t
 
+  | Styp_eff_set ts       -> List.flatten (map free_vars ts)
+
   | Styp_ftvar _
   | Styp_rtvar _ -> [t]
 
@@ -594,7 +620,7 @@ and uniq_type t =
 and uniq_effect_set xs =
   let cmp x y = (*Temporary hack for effect var*)
     match x.styp_desc , y.styp_desc with
-    | Styp_rtvar ("£", _)      , _              ->  1
+    | Styp_rtvar ("£", _) , _                   ->  1
     | _                   , Styp_rtvar ("£", _) -> -1
     | Styp_effin (ei, ps) , Styp_effin (ei', ps')
       -> let ei_cmp = String.compare ei ei' in
@@ -604,6 +630,17 @@ and uniq_effect_set xs =
 	 else t_cmp
     | _                   , _              -> assert false in
   List.sort_uniq cmp xs
+
+and is_flexible_effect_set xs =
+  (* Flexible effect sets are created on-the-fly by the typechecker for
+     anonymous handlers. *)
+  match xs with
+  | [t] -> begin
+             match (unbox t).styp_desc with
+	     | Styp_ftvar _ -> true
+	     |       _      -> false
+           end
+  |  _  -> false
 
 and unify x y =
   let unify_fail x y =
@@ -635,12 +672,23 @@ and unify x y =
       | TypeError _ -> false in
     let unify_types xs ys =
       let f = fun acc (t, t') -> acc && unify' t t' in
-      foldl f true (zip xs ys) in
+      try foldl f true (zip xs ys) with
+      | Invalid_argument _
+	-> let msg = Printf.sprintf "failed to unify lists: %s with %s"
+	     (show_types xs) (show_types ys) in
+	   Debug.print "%s\n" msg; false in
     (* Order does not matter for effect sets *)
     let unify_effect_sets xs ys =
       let xs = uniq_effect_set xs in
       let ys = uniq_effect_set ys in
-      unify_types xs ys in
+      (* May need to perform flexible effect set unification *)
+      if is_flexible_effect_set xs && is_flexible_effect_set ys then
+	unify_ftvars (List.hd xs) (List.hd ys)
+      else if is_flexible_effect_set xs then
+	unify_flex (List.hd xs) (TypExp.eff_set ys)
+      else if is_flexible_effect_set ys then
+	unify_flex (List.hd ys) (TypExp.eff_set xs)
+      else unify_types xs ys in
     match x.styp_desc, y.styp_desc with
     | Styp_thunk t          , Styp_thunk t'      -> unify' t t'
     | Styp_rtvar (v, n)     , Styp_rtvar (v', n') ->

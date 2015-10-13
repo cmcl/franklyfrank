@@ -224,11 +224,11 @@ module EvalComp : EVALCOMP = struct
 
   and handle_builtin_cmds m =
     match m with
-    | Command ("putStr",   [VStr s], _) -> print_string s;
-                                           return (VCon ("Unit", []))
-    | Command ("putStrLn", [VStr s], _) -> print_endline s;
-                                           return (VCon ("Unit", []))
-    | Command ("getStr",   [],  _)      -> return (VStr (read_line ()))
+    | Command ("putStr",   [VStr s], r) -> print_string s;
+                                           r (VCon ("Unit", []))
+    | Command ("putStrLn", [VStr s], r) -> print_endline s;
+                                           r (VCon ("Unit", []))
+    | Command ("getStr",   [],  r)      -> r (VStr (read_line ()))
     |    _     -> assert false (* Command not handled *)
 
   and construct_env_entry hdr env =
