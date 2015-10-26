@@ -568,11 +568,15 @@ and type_cmd env c =
   let eis = map (fun (ei, ts) -> (ei, ts, ENV.find ei env.ienv)) eis in
   let msg = Printf.sprintf "command %s not handled by ambient effects %s"
     c (show_types es) in
+  (* Instantiate the command and the parameters of the interface *)
   let (ei, ts, ps, cmd) = find_cmd c eis msg in
   let (env, ps) = map_accum inst env ps in
   let cmd = inst_cmd env cmd in
+  (* Unify the instantiated parameters with the actual parameters provided in
+     the effect set. This will give concrete types to the command's arguments
+     and result type. *)
   let _ = map (uncurry unify) (zip ts ps) in
-  let oes = List.flatten (map (inst_effect_var env) TypExp.effect_var_set) in
+  let oes = env.fenv in
   let args = (map (fun t -> TypExp.returner t ~effs:oes ()) cmd.scmd_args) in
   let r = TypExp.returner cmd.scmd_res ~effs:es () in
   let c = TypExp.comp ~args:args r in
