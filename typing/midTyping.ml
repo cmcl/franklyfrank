@@ -270,8 +270,8 @@ and type_ccomp env res cc =
          match (unbox res).styp_desc with
 	 | Styp_ftvar _ ->
 	   let t = fresh_returner () in
-	   let _ = unify res t in
-	   type_ccomp env t cc
+	   let _ = type_ccomp env t cc in
+	   unify res t
 	 | _
 	   -> type_error
 	   (Printf.sprintf
@@ -304,6 +304,17 @@ and type_empty_clause env res =
 		   type_error msg
 	 | _ -> type_error "expected returner type for empty clause"
        end
+  | Styp_ref pt -> begin
+                     match (unbox res).styp_desc with
+		     | Styp_ftvar _
+		       -> let r = fresh_returner () in
+			  let c = fresh_ref "c" in
+			  let t = TypExp.comp ~args:[r] c in
+			  unify res t
+		     | _ ->
+		       let msg = "expected computation type for empty clause"
+		       in type_error msg
+                   end
   | _ -> type_error "expected computation type for empty clause"
 
 and is_uninhabited env v =
@@ -322,9 +333,26 @@ and unbox t =
   | _ -> t
 
 and type_clauses env t cls =
-  let (ts, r) = destruct_comp_type t in
-  let _ = foldl (type_clause env ts) r cls in
-  t
+  match (unbox t).styp_desc with
+  | Styp_ftvar _
+    -> begin
+         match cls with
+	 | (ps,_) :: _
+	   -> let xs = map (fun _ -> fresh_returner ()) ps in
+	      let y = fresh_returner () in
+	      (* Generate the required shape for checking against a clause. *)
+	      let t' = TypExp.comp ~args:xs y in
+	      (* Typecheck the clauses against newly generated flexible
+		 type variables. *)
+	      let _ = type_clauses env t' cls in
+	      (* Unify the existing flexible against this more complex
+		 flexible type variable. *)
+	      unify t t'
+	 | _ -> assert false
+       end
+  | _ -> let (ts, r) = destruct_comp_type t in
+	 let _ = foldl (type_clause env ts) r cls in
+	 t
 
 and type_clause env ts r (ps, cc) =
   Debug.print "%s with %s\n"
@@ -455,17 +483,19 @@ and type_cvalue env res cv =
 	      let t = TypExp.datatype d ps in
 	      let _ = type_cvalue env t cv in
 	      unify res t
-	 | Mcvalue_thunk (Mccomp_clauses ((ps,_) :: _) as cc), Styp_ftvar _
-	   -> let xs = map (fun _ -> fresh_returner ()) ps in
-	      let y = fresh_returner () in
-	      (* Generate the required type for checking against a thunk. *)
-	      let t = TypExp.sus_comp (TypExp.comp ~args:xs y) in
+	 | Mcvalue_thunk cc, Styp_ftvar _
+	   -> let c = fresh_ref "c" in
+	      (* let xs = map (fun _ -> fresh_returner ()) ps in *)
+	      (* let y = fresh_returner () in *)
+	      (* Generate the required shape for checking against a thunk. *)
+	      let t = TypExp.sus_comp c in
+	      (* (TypExp.comp ~args:xs y) in *)
 	      (* Unify the existing flexible against this more complex
 		 flexible type variable. *)
 	      let _ = unify res t in
-	      (* Typecheck the computation newly generated flexible type
-		 variables. *)
-	      TypExp.sus_comp (type_ccomp env t cc)
+	      (* Typecheck the computation against newly generated flexible
+		 type variables. *)
+	      type_cvalue env t cv
 	 | _ , _ -> type_cvalue env (unbox res) cv
        end
   | _ , _ -> type_error ("cannot check " ^ ShowMidCValue.show cv ^
@@ -523,7 +553,7 @@ and type_ivalue env iv =
        begin (* Check the ambient effects agrees with returner type. *)
 	 match t.styp_desc with
 	 | Styp_ret (es, v)
-	   -> v (* TODO: Compare es with fst (env.fenv) *)
+	   -> v (* TODO: Compare es with env.fenv *)
 	 | _ -> let msg = Printf.sprintf
 		  "expected returner type but type was %s"
 		  (ShowSrcType.show t) in
