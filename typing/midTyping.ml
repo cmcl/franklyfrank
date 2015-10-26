@@ -453,6 +453,7 @@ and type_cvalue env res cv =
 	   -> let (d, ps) = find_datatype_from_ctr env k in
 	      let (_, ps) = map_accum inst env ps in
 	      let t = TypExp.datatype d ps in
+	      let _ = type_cvalue env t cv in
 	      unify res t
 	 | Mcvalue_thunk (Mccomp_clauses ((ps,_) :: _) as cc), Styp_ftvar _
 	   -> let xs = map (fun _ -> fresh_returner ()) ps in
