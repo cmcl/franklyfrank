@@ -1,0 +1,25 @@
+{- Jack Williams-inspired example. -}
+data Dyn = DInt : Int -> Dyn
+         | DBool : Bool -> Dyn.
+
+data Zero =.
+
+interface Fail = fail : String -> Zero.
+
+bind : x -> {x -> y} -> y.
+bind x f = f x.
+
+failure : String -> [Fail]a.
+failure msg = bind (fail msg) {}.
+
+toInt : Dyn -> [Fail]Int.
+toInt (DInt i) = i.
+toInt (DBool b) = failure "BOOL".
+
+run : [Fail]Int -> [Console]Int.
+run        n          = n.
+run   [fail msg -> k] = bind (putStrLn msg) {x -> 0}.
+
+main : [Console]Int.
+main = run (toInt (DBool true)).
+
