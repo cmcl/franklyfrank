@@ -38,6 +38,7 @@ and mid_ivalue =
   | Mivalue_var of string
   | Mivalue_cmd of string
   | Mivalue_int of int
+  | Mivalue_float of float
   | Mivalue_bool of bool
   | Mivalue_str of string
   | Mivalue_icomp of mid_icomputation
@@ -99,6 +100,7 @@ and ShowMidIValue : SHOW with type t = mid_ivalue = struct
     | Mivalue_var v -> "({-VAR-} " ^ v ^ ")"
     | Mivalue_cmd c -> "({-CMD-} " ^ c ^ ")"
     | Mivalue_int n -> "({-INT-} " ^ string_of_int n ^ ")"
+    | Mivalue_float f -> "({-FLOAT-} " ^ string_of_float f ^ ")"
     | Mivalue_bool b -> "({-BOOL-} " ^ string_of_bool b ^ ")"
     | Mivalue_str s -> "({-STRING-} \"" ^ (String.escaped s) ^ "\")"
     | Mivalue_icomp ic -> ShowMidIComp.show ic

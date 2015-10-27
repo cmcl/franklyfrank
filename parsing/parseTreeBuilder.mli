@@ -42,6 +42,7 @@ module IValue :
   sig
     val ident : string -> inferable_value
     val integer : int -> inferable_value
+    val float : float -> inferable_value
     val boolean : bool -> inferable_value
     val str : string -> inferable_value
     val icomp : inferable_computation -> inferable_value
@@ -103,6 +104,7 @@ module TypExp :
 
     val bool : unit -> src_type
     val int : unit -> src_type
+    val float : unit -> src_type
     val str : unit -> src_type
 
     (* Effect sets *)
@@ -134,6 +136,7 @@ module Pattern :
     val any_value : unit -> value_pattern
     val var : string -> value_pattern
     val integer : int -> value_pattern
+    val float : float -> value_pattern
     val boolean : bool -> value_pattern
     val str : string -> value_pattern
     val ctr : string -> ?pats:value_pattern list -> unit ->

@@ -20,6 +20,7 @@ module type EVALCOMP = sig
   and value =
     | VBool of bool
     | VInt of int
+    | VFloat of float
     | VStr of string
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
@@ -47,6 +48,7 @@ module EvalComp : EVALCOMP = struct
   and value =
     | VBool of bool
     | VInt of int
+    | VFloat of float
     | VStr of string
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
@@ -73,6 +75,7 @@ module EvalComp : EVALCOMP = struct
     match v with
     | VBool b -> string_of_bool b
     | VInt n -> string_of_int n
+    | VFloat f -> string_of_float f
     | VStr s -> "\"" ^ (String.escaped s) ^ "\""
     | VCon ("Nil", []) -> "[]"
     | VCon ("Cons", vs) ->
@@ -112,6 +115,7 @@ module EvalComp : EVALCOMP = struct
                             else Some (ENV.add x (return v) env)
 	| VBool b, Svpat_bool b' -> if b = b' then Some env else None
 	| VInt n, Svpat_int n' -> if n = n' then Some env else None
+	| VFloat f, Svpat_float f' -> if f = f' then Some env else None
 	| VStr s, Svpat_str s' -> if s = s' then Some env else None
 	| VCon (k, vs), Svpat_ctr (k', vs')
 	  -> if k = k' && len_cmp vs vs' then
@@ -331,6 +335,7 @@ module EvalComp : EVALCOMP = struct
     | Mivalue_var v -> ENV.find v env
     | Mivalue_cmd c -> eval_cmd env c
     | Mivalue_int n -> return (VInt n)
+    | Mivalue_float f -> return (VFloat f)
     | Mivalue_bool b -> return (VBool b)
     | Mivalue_str s -> return (VStr s)
     | Mivalue_icomp ic -> eval_icomp env ic

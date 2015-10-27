@@ -104,7 +104,7 @@ let rec refine_vpat st vp =
     -> if CtrSet.mem v st.ctrs then Svpat_ctr (v, []) else vp   
   | Svpat_ctr (k, ps)
     -> let ps' = List.map (refine_vpat st) ps in Svpat_ctr (k, ps')
-  | Svpat_any | Svpat_int _ | Svpat_bool _ | Svpat_str _ -> vp
+  | Svpat_any | Svpat_int _ | Svpat_float _ | Svpat_bool _ | Svpat_str _ -> vp
 
 let refine_cpat st cp =
   match cp with
@@ -141,6 +141,7 @@ and translate_ivalue st iv =
       else
 	Mivalue_var v
   | IValue_int n -> Mivalue_int n
+  | IValue_float f -> Mivalue_float f
   | IValue_bool b -> Mivalue_bool b
   | IValue_str s -> Mivalue_str s
   | IValue_icomp ic
@@ -233,6 +234,7 @@ let rec desugar_type' env t =
 		       ENV.add v rtvar env, rtvar
                    end
   | Styp_datatype ("Int", [])    -> env, TypExp.int ()
+  | Styp_datatype ("Float", [])  -> env, TypExp.float ()
   | Styp_datatype ("Bool", [])   -> env, TypExp.bool ()
   | Styp_datatype ("String", []) -> env, TypExp.str ()
   | Styp_datatype (d, ps)

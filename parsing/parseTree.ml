@@ -24,6 +24,7 @@ and inferable_value =
   | IValue_ident of string
       (** Could be a monovar, polyvar or effect signature. *)
   | IValue_int of int
+  | IValue_float of float
   | IValue_bool of bool
   | IValue_str of string
   (** Int/Bool/String literals *)
@@ -50,6 +51,7 @@ and value_pattern =
   | Svpat_any (* _ *)
   | Svpat_var of string
   | Svpat_int of int
+  | Svpat_float of float
   | Svpat_bool of bool
   | Svpat_str of string
    (** Int/Bool/String literals *)
@@ -123,6 +125,7 @@ and src_type_desc =
 (* Builtin types *)
   | Styp_bool
   | Styp_int
+  | Styp_float
   | Styp_str
 
 and src_tvar = string * int
@@ -210,6 +213,10 @@ let rec compare x y =
   | Styp_int , _         -> 1
   | _         , Styp_int -> -1
 
+  | Styp_float , Styp_float -> 0
+  | Styp_float , _         -> 1
+  | _         , Styp_float -> -1
+
   | Styp_str  , Styp_str -> 0
 
 
@@ -232,6 +239,7 @@ module ShowPattern : SHOW with type t = pattern = struct
     | Svpat_any -> "_"
     | Svpat_var v -> v
     | Svpat_int n -> string_of_int n
+    | Svpat_float f -> string_of_float f
     | Svpat_bool b -> string_of_bool b
     | Svpat_str s -> "\"" ^ (String.escaped s) ^ "\""
     | Svpat_ctr (k, ps)
@@ -253,6 +261,7 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
     | Styp_effin (s, ts)
       -> s ^ " " ^ (String.concat " " (List.map show ts))
     | Styp_int -> "Int" 
+    | Styp_float -> "Float"
     | Styp_ret (effs, res)
       -> "[" ^ (String.concat ", " (List.map show effs)) ^ "]" ^ (show res)
     | Styp_thunk c -> "{" ^ show c ^ "}"
