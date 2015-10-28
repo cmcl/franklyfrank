@@ -209,7 +209,8 @@ and inst env t =
 
 and inst_effect_var env e =
   match e.styp_desc with
-  | Styp_rtvar ("£", _) -> env.fenv
+  | Styp_rtvar ("£", _) ->
+    Debug.print "instantiating £ to %s\n" (show_types env.fenv); env.fenv
   | _ -> [e]
 
 and inst_with f env t =
@@ -616,7 +617,8 @@ and type_icomp env ic =
        if does r env.fenv then r
        else type_error "ambient effects not allowed by computation"
 
-and does r es = true
+and does r es =
+  Debug.print "%s DOES %s\n" (ShowSrcType.show r) (show_types es); true
 
 and free_vars t =
   match t.styp_desc with
