@@ -229,7 +229,7 @@ module EvalComp : EVALCOMP = struct
   (* The runtime system handles some commands such as I/O. *)
   and rts m =
     match m with
-    | Command _ -> handle_builtin_cmds m
+    | Command _ -> rts (handle_builtin_cmds m)
     | Return v -> m
 
   and handle_builtin_cmds m =

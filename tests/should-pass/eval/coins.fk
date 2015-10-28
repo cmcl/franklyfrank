@@ -49,8 +49,8 @@ drunkTosses 0 = Nil.
 drunkTosses n = Cons (drunkToss!) (drunkTosses (minus n 1)).
 
 maybeResult : [Fail]a -> Maybe a.
-maybeResult x           = Just x.
-maybeResult [fail -> k] = Nothing.
+maybeResult x             = Just x.
+maybeResult [fail -> k]   = Nothing.
 
 persevere' : {[Fail]a} -> [Fail]a     -> a.
 persevere'       m           x         = x.
@@ -59,29 +59,41 @@ persevere'       m       [fail -> k]   = persevere' m (m!).
 persevere : [Fail]a -> a.
 persevere     [m]    = persevere' m (m!).
 
-
 interface Rand = rand : Float.
 
 randomResult : [Choice]a -> [Rand]a.
 randomResult x             = x.
 randomResult [choice -> k] = bind (gtf (rand!) 0.5) {x -> randomResult (k x)}.
-                             {-randomResult (k (gtf (rand!) 0.5)).-}
+{- it would be nice if we could write this without the bind -}
+{-randomResult (k (gtf (rand!) 0.5)).-}
 
 handleRandom : [Rand]a -> [Random]a.
 handleRandom x           = x.
 handleRandom [rand -> k] = bind (random!) {x -> handleRandom (k x)}.
 {-handleRandom [rand -> k] = handleRandom (k (random!)).-}
 
-sampleMaybe : [Choice, Fail]a -> [Random]Maybe a.
-sampleMaybe m = handleRandom (maybeResult (randomResult m)).
+sampleMaybe : {[Choice, Fail]a} -> [Random]Maybe a.
+sampleMaybe m = handleRandom (maybeResult (randomResult (m!))).
 
-sample : [Choice, Fail]a -> [Random]a.
-sample m = handleRandom (persevere (randomResult m)).
+sample : {[Choice, Fail]a} -> [Random]a.
+sample m = handleRandom (persevere (randomResult (m!))).
+
+
+{- This handler should fail to type-check because it doesn't cover all
+of the commands in the input -}
+sample' : [Choice, Fail]a -> [Random]a.
+sample' m = handleRandom (persevere (randomResult m)).
+
 
 {-
 main : List (List Toss).
 main = allResults (drunkTosses 3).
 -}
 
-main : [Random]Maybe (List Toss).
-main = sampleMaybe (drunkTosses 3).
+main : [Random]List (Maybe (List Toss)).
+main = Cons (sampleMaybe {drunkTosses 2}) (Cons (sampleMaybe {drunkTosses 2}) Nil).
+
+{-
+main : [Random]List Toss.
+main = sample {drunkTosses 3}.
+-}
