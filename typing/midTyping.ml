@@ -57,11 +57,23 @@ let console_interface =
   let get_str = EffInterface.cmd_decl "getStr" (TypExp.str ()) in
   ([], [put_str; put_str_ln; get_str])
 
+let random_interface =
+  let random = EffInterface.cmd_decl "random" ~args:[]
+    (TypExp.float ()) in
+  ([], [random])
+
 (* Types of builtin functions. *)
 
 let gt_type =
   let oes = TypExp.effect_var_set in
   let arg = TypExp.returner (TypExp.int ()) ~effs:oes () in
+  let ts = [arg; arg] in
+  let r = TypExp.returner (TypExp.bool ()) ~effs:oes () in
+  TypExp.sus_comp (TypExp.comp ~args:ts r)
+
+let gtf_type =
+  let oes = TypExp.effect_var_set in
+  let arg = TypExp.returner (TypExp.float ()) ~effs:oes () in
   let ts = [arg; arg] in
   let r = TypExp.returner (TypExp.bool ()) ~effs:oes () in
   TypExp.sus_comp (TypExp.comp ~args:ts r)
@@ -91,16 +103,20 @@ let add_builtins env =
   let tenv = ENV.add "plus" plus_type
     (ENV.add "minus" minus_type
        (ENV.add "gt" gt_type
-	  (ENV.add "strcat" strcat_type env.tenv))) in
+          (ENV.add "gtf" gtf_type
+	     (ENV.add "strcat" strcat_type env.tenv)))) in
   let denv = ENV.add "Unit" unit_datatype env.denv in
-  let ienv = ENV.add "Console" console_interface env.ienv in
+  let ienv =
+    ENV.add "Random" random_interface
+      (ENV.add "Console" console_interface env.ienv) in
   { env
     with
       tenv;
       denv;
       henv = HENV.add "plus" (HENV.add "gt"
-				(HENV.add "strcat"
-				   (HENV.add "minus" env.henv)));
+                                (HENV.add "gtf"
+				   (HENV.add "strcat"
+	  (HENV.add "minus" env.henv))));
       ienv }
 
 let rec type_prog prog =

@@ -326,7 +326,7 @@ let disjoint_from_builtin_datatypes dt =
 
 let disjoint_from_builtin_interfaces ei =
   let module M = Set.Make(String) in
-  let env = M.add "Console" M.empty in
+  let env = M.add "Random" (M.add "Console" M.empty) in
   let name = ei.sei_name in
   if M.mem name env then shadowing_builtin ("effect interface " ^ name)
   else ()
@@ -335,8 +335,10 @@ let disjoint_from_builtin_interfaces ei =
 let builtin_ctrs = CtrSet.M.add "Unit" CtrSet.empty
 
 (* Builtin commands *)
-let builtin_cmds = CmdSet.M.add "putStr"
-  (CmdSet.M.add "putStrLn" (CmdSet.M.add "getStr" CmdSet.empty))
+let builtin_cmds =
+  CmdSet.M.add "random"
+    (CmdSet.M.add "putStr"
+       (CmdSet.M.add "putStrLn" (CmdSet.M.add "getStr" CmdSet.empty)))
 
 (** Main translation function. *)
 

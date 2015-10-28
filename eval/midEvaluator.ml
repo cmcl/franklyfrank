@@ -183,6 +183,12 @@ module EvalComp : EVALCOMP = struct
                | _ as vy -> invalid_arg ("second_arg:" ^ vshow vy))
             | _ as vx -> invalid_arg ("first arg:" ^ vshow vx)
 
+  let gtfdef env [cx; cy] = cx >>=
+    function (VFloat x) -> cy >>=
+      (function (VFloat y) -> return (VBool (x > y))
+               | _ as vy -> invalid_arg ("second_arg:" ^ vshow vy))
+            | _ as vx -> invalid_arg ("first arg:" ^ vshow vx)
+
   let minusdef env [cx; cy] = cx >>=
     function (VInt x) -> cy >>=
       (function (VInt y) -> return (VInt (x - y))
@@ -203,7 +209,7 @@ module EvalComp : EVALCOMP = struct
 
   (** Create the builtin environment. *)
   let get_builtins () =
-    let blts = [("gt", gtdef); ("minus", minusdef); ("plus", plusdef);
+    let blts = [("gt", gtdef); ("gtf", gtfdef); ("minus", minusdef); ("plus", plusdef);
 	        ("strcat", strcatdef)] in
     let add_blt (n,d) env = ENV.add n d env in
     List.fold_right add_blt blts ENV.empty
@@ -228,11 +234,13 @@ module EvalComp : EVALCOMP = struct
 
   and handle_builtin_cmds m =
     match m with
+    | Command ("random",   [], r) -> r (VFloat (Random.float 1.0))
     | Command ("putStr",   [VStr s], r) -> print_string s;
                                            r (VCon ("Unit", []))
     | Command ("putStrLn", [VStr s], r) -> print_endline s;
                                            r (VCon ("Unit", []))
     | Command ("getStr",   [],  r)      -> r (VStr (read_line ()))
+    | Command (c, _, _) -> failwith ("Command: " ^ c ^ " not handled")
     |    _     -> assert false (* Command not handled *)
 
   and construct_env_entry hdr env =
