@@ -57,11 +57,23 @@ let console_interface =
   let get_str = EffInterface.cmd_decl "getStr" (TypExp.str ()) in
   ([], [put_str; put_str_ln; get_str])
 
+let random_interface =
+  let random = EffInterface.cmd_decl "random" ~args:[]
+    (TypExp.float ()) in
+  ([], [random])
+
 (* Types of builtin functions. *)
 
 let gt_type =
   let oes = TypExp.effect_var_set in
   let arg = TypExp.returner (TypExp.int ()) ~effs:oes () in
+  let ts = [arg; arg] in
+  let r = TypExp.returner (TypExp.bool ()) ~effs:oes () in
+  TypExp.sus_comp (TypExp.comp ~args:ts r)
+
+let gtf_type =
+  let oes = TypExp.effect_var_set in
+  let arg = TypExp.returner (TypExp.float ()) ~effs:oes () in
   let ts = [arg; arg] in
   let r = TypExp.returner (TypExp.bool ()) ~effs:oes () in
   TypExp.sus_comp (TypExp.comp ~args:ts r)
@@ -91,16 +103,20 @@ let add_builtins env =
   let tenv = ENV.add "plus" plus_type
     (ENV.add "minus" minus_type
        (ENV.add "gt" gt_type
-	  (ENV.add "strcat" strcat_type env.tenv))) in
+          (ENV.add "gtf" gtf_type
+	     (ENV.add "strcat" strcat_type env.tenv)))) in
   let denv = ENV.add "Unit" unit_datatype env.denv in
-  let ienv = ENV.add "Console" console_interface env.ienv in
+  let ienv =
+    ENV.add "Random" random_interface
+      (ENV.add "Console" console_interface env.ienv) in
   { env
     with
       tenv;
       denv;
       henv = HENV.add "plus" (HENV.add "gt"
-				(HENV.add "strcat"
-				   (HENV.add "minus" env.henv)));
+                                (HENV.add "gtf"
+				   (HENV.add "strcat"
+	  (HENV.add "minus" env.henv))));
       ienv }
 
 let rec type_prog prog =
@@ -237,6 +253,7 @@ and inst_with f env t =
   | Styp_ref _ (* TODO: Possibly incorrect behaviour *)
   | Styp_bool
   | Styp_int
+  | Styp_float
   | Styp_str -> env, t
   | Styp_tvar _ -> assert false
 
@@ -385,6 +402,7 @@ and type_pattern env (t, p) =
   | Styp_rtvar _, Spat_value vp
   | Styp_bool, Spat_value vp
   | Styp_int, Spat_value vp
+  | Styp_float, Spat_value vp
   | Styp_str, Spat_value vp
   | Styp_ref _, Spat_value vp
     -> type_value_pattern env (t, vp)
@@ -442,6 +460,7 @@ and type_value_pattern env (t, vp) =
   match t.styp_desc, vp with
   | Styp_bool, Svpat_bool _
   | Styp_int, Svpat_int _
+  | Styp_float, Svpat_float _
   | Styp_str, Svpat_str _
   | _, Svpat_any
     -> env
@@ -547,6 +566,7 @@ and type_ivalue env iv =
     let t = type_cmd env c in
     Debug.print "CMD instantiated to %s\n" (ShowSrcType.show (uniq_type t)); t
   | Mivalue_int _ -> TypExp.int ()
+  | Mivalue_float _ -> TypExp.float ()
   | Mivalue_bool _ -> TypExp.bool ()
   | Mivalue_str _ -> TypExp.str ()
   | Mivalue_icomp ic
@@ -638,6 +658,7 @@ and free_vars t =
 
   | Styp_bool
   | Styp_int
+  | Styp_float
   | Styp_str
   | Styp_tvar _ -> []
 
@@ -741,7 +762,8 @@ and unify x y =
       -> s = s' && unify_types ts ts'
 
     | Styp_bool             , Styp_bool
-    | Styp_int              , Styp_int      
+    | Styp_int              , Styp_int
+    | Styp_float            , Styp_float
     | Styp_str              , Styp_str      -> true
     | _                     , _             -> unify_fail x y in
   let is_ref x = match x.styp_desc with Styp_ref _ -> true | _ -> false in

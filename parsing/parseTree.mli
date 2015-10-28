@@ -30,6 +30,7 @@ and inferable_value =
   | IValue_ident of string
       (** Could be a monovar, polyvar or command. *)
   | IValue_int of int
+  | IValue_float of float
   | IValue_bool of bool
   | IValue_str of string
   (** Int/Bool literals *)
@@ -56,6 +57,7 @@ and value_pattern =
   | Svpat_any (* _ *)
   | Svpat_var of string
   | Svpat_int of int
+  | Svpat_float of float
   | Svpat_bool of bool
   | Svpat_str of string
    (** Int/Bool/String literals *)
@@ -129,6 +131,7 @@ and src_type_desc =
 (* Builtin types *)
   | Styp_bool
   | Styp_int
+  | Styp_float
   | Styp_str
 
 and src_tvar = string * int

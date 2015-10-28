@@ -19,6 +19,7 @@
 %token <string> STRLIT
 %token INTERFACE
 %token <int> INTLIT
+%token <float> FLOATLIT
 %token RARROW
 %token LBRACE LBRACKET LPAREN
 %token RBRACE RBRACKET RPAREN
@@ -92,6 +93,7 @@ paren_checkable_value:
 inferable_value:
   | ID                            { IValue.ident $1 }
   | INTLIT                        { IValue.integer $1 }
+  | FLOATLIT                      { IValue.float $1 }
   | STRLIT                        { IValue.str $1 }
   | TRUE                          { IValue.boolean true }
   | FALSE                         { IValue.boolean false }
@@ -101,6 +103,7 @@ inferable_value:
 paren_inferable_value:
   | ID                            { IValue.ident $1 }
   | INTLIT                        { IValue.integer $1 }
+  | FLOATLIT                      { IValue.float $1 }
   | STRLIT                        { IValue.str $1 }
   | TRUE                          { IValue.boolean true }
   | FALSE                         { IValue.boolean false }
@@ -138,6 +141,7 @@ value_pattern:
   | ID                                    { Pattern.var $1 }
   | UID                                   { Pattern.ctr $1 () }
   | INTLIT                                { Pattern.integer $1 }
+  | FLOATLIT                              { Pattern.float $1 }
   | STRLIT                                { Pattern.str $1 }
   | TRUE                                  { Pattern.boolean true }
   | FALSE                                 { Pattern.boolean false }

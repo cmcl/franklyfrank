@@ -20,6 +20,7 @@ module type EVALCOMP = sig
   and value =
     | VBool of bool
     | VInt of int
+    | VFloat of float
     | VStr of string
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
@@ -47,6 +48,7 @@ module EvalComp : EVALCOMP = struct
   and value =
     | VBool of bool
     | VInt of int
+    | VFloat of float
     | VStr of string
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
@@ -73,6 +75,7 @@ module EvalComp : EVALCOMP = struct
     match v with
     | VBool b -> string_of_bool b
     | VInt n -> string_of_int n
+    | VFloat f -> string_of_float f
     | VStr s -> "\"" ^ (String.escaped s) ^ "\""
     | VCon ("Nil", []) -> "[]"
     | VCon ("Cons", vs) ->
@@ -112,6 +115,7 @@ module EvalComp : EVALCOMP = struct
                             else Some (ENV.add x (return v) env)
 	| VBool b, Svpat_bool b' -> if b = b' then Some env else None
 	| VInt n, Svpat_int n' -> if n = n' then Some env else None
+	| VFloat f, Svpat_float f' -> if f = f' then Some env else None
 	| VStr s, Svpat_str s' -> if s = s' then Some env else None
 	| VCon (k, vs), Svpat_ctr (k', vs')
 	  -> if k = k' && len_cmp vs vs' then
@@ -179,6 +183,12 @@ module EvalComp : EVALCOMP = struct
                | _ as vy -> invalid_arg ("second_arg:" ^ vshow vy))
             | _ as vx -> invalid_arg ("first arg:" ^ vshow vx)
 
+  let gtfdef env [cx; cy] = cx >>=
+    function (VFloat x) -> cy >>=
+      (function (VFloat y) -> return (VBool (x > y))
+               | _ as vy -> invalid_arg ("second_arg:" ^ vshow vy))
+            | _ as vx -> invalid_arg ("first arg:" ^ vshow vx)
+
   let minusdef env [cx; cy] = cx >>=
     function (VInt x) -> cy >>=
       (function (VInt y) -> return (VInt (x - y))
@@ -199,7 +209,7 @@ module EvalComp : EVALCOMP = struct
 
   (** Create the builtin environment. *)
   let get_builtins () =
-    let blts = [("gt", gtdef); ("minus", minusdef); ("plus", plusdef);
+    let blts = [("gt", gtdef); ("gtf", gtfdef); ("minus", minusdef); ("plus", plusdef);
 	        ("strcat", strcatdef)] in
     let add_blt (n,d) env = ENV.add n d env in
     List.fold_right add_blt blts ENV.empty
@@ -224,11 +234,13 @@ module EvalComp : EVALCOMP = struct
 
   and handle_builtin_cmds m =
     match m with
+    | Command ("random",   [], r) -> r (VFloat (Random.float 1.0))
     | Command ("putStr",   [VStr s], r) -> print_string s;
                                            r (VCon ("Unit", []))
     | Command ("putStrLn", [VStr s], r) -> print_endline s;
                                            r (VCon ("Unit", []))
     | Command ("getStr",   [],  r)      -> r (VStr (read_line ()))
+    | Command (c, _, _) -> failwith ("Command: " ^ c ^ " not handled")
     |    _     -> assert false (* Command not handled *)
 
   and construct_env_entry hdr env =
@@ -331,6 +343,7 @@ module EvalComp : EVALCOMP = struct
     | Mivalue_var v -> ENV.find v env
     | Mivalue_cmd c -> eval_cmd env c
     | Mivalue_int n -> return (VInt n)
+    | Mivalue_float f -> return (VFloat f)
     | Mivalue_bool b -> return (VBool b)
     | Mivalue_str s -> return (VStr s)
     | Mivalue_icomp ic -> eval_icomp env ic

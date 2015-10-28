@@ -54,6 +54,8 @@ module IValue = struct
 
   let integer n = IValue_int n
 
+  let float f = IValue_float f
+
   let boolean b = IValue_bool b
 
   let str s = IValue_str s
@@ -108,6 +110,7 @@ module TypExp = struct
 
   let bool () = mk (Styp_bool)
   let int () = mk (Styp_int)
+  let float () = mk (Styp_float)
   let str () = mk (Styp_str)
 
   (* The one and only effect variable with a special non-parsable name to
@@ -137,6 +140,7 @@ module Pattern = struct
   let any_value () = Svpat_any
   let var name = Svpat_var name
   let integer n = Svpat_int n
+  let float f = Svpat_float f
   let boolean b = Svpat_bool b
   let str s = Svpat_str s
   let ctr name ?(pats = []) () = Svpat_ctr (name, pats)

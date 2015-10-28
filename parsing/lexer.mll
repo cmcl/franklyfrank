@@ -15,6 +15,7 @@
 }
 
 let int = '-'? ['0'-'9']+
+let float = '-'? ['0'-'9']* '.' ['0'-'9']+
 let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 let alpha =  ['a'-'z' 'A'-'Z' '_']
@@ -26,6 +27,7 @@ rule token = parse
   | white     { token lexbuf }
   | newline   { new_line lexbuf; token lexbuf }
   | int       { INTLIT (int_of_string (Lexing.lexeme lexbuf)) }
+  | float     { FLOATLIT (float_of_string (Lexing.lexeme lexbuf)) }
   | "!"         { BANG }
   | "data"      { DATA }
   | "interface" { INTERFACE }

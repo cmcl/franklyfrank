@@ -24,6 +24,7 @@ module type EVALCOMP = sig
   and value =
     | VBool of bool
     | VInt of int
+    | VFloat of float
     | VStr of string
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
