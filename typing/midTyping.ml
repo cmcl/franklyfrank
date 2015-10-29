@@ -372,7 +372,7 @@ and type_clauses env t cls =
 	 t
 
 and type_clause env ts r (ps, cc) =
-  Debug.print "%s with %s\n"
+  Debug.print "types: %s with patterns: %s\n"
     (string_of_args ", " ~bbegin:false ShowSrcType.show ts)
     (string_of_args ", " ~bbegin:false ShowPattern.show ps);
   let env = try pat_matches env ts ps with
