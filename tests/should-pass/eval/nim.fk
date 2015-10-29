@@ -1,0 +1,164 @@
+{- standard stuff -}
+maximum : Int -> Int -> Int.
+maximum 0 n = n.
+maximum m 0 = m.
+maximum m n = plus 1 (maximum (minus m 1) (minus n 1)).
+
+mod : Int -> Int -> Int.
+mod 0 n = 0.
+mod m n = cond (gt m n) {mod (minus m n) n} {m}.
+
+data Maybe a = Nothing :      Maybe a
+             | Just    : a -> Maybe a.
+
+data List a = Nil  :                List a
+            | Cons : a -> List a -> List a.
+
+map : {a -> b} -> List a -> List b.
+map f Nil         = Nil.
+map f (Cons x xs) = Cons (f x) (map f xs).
+
+filter : {a -> Bool} -> List a -> List a.
+filter p Nil         = Nil.
+filter p (Cons x xs) = cond (p x) {Cons x (filter p xs)} {filter p xs}.
+
+length : List a -> Int.
+length Nil         = 0.
+length (Cons x xs) = plus 1 (length xs).
+
+zip : List a -> List b -> List (Pair a b).
+zip Nil         _           = Nil.
+zip _           Nil         = Nil.
+zip (Cons x xs) (Cons y ys) = Cons (Pair x y) (zip xs ys).
+
+range : Int -> Int -> List Int.
+range m n = cond (gt m n) {Nil} {Cons m (range (plus m 1) n)}.
+
+bind : a -> {a -> b} -> b.
+bind x f = f x.
+
+cond : Bool -> {a} -> {a} -> a.
+cond true  t e = t!.
+cond false t e = e!.
+
+data Pair a b = Pair : a -> b -> Pair a b.
+{- end of standard stuff -}
+
+
+{-
+Nim game (https://en.wikipedia.org/wiki/Nim)
+This example is adapted from Kammar et al. (2013)
+(https://github.com/slindley/effect-handlers)
+
+A game begins with n sticks on the table. The game has two players: Alice and Bob.
+Alice goes first. Alice takes between one and three sticks, then it is Bob's turn
+and similary Bob takes between one and three sticks. They alternate turns until
+there are no more sticks left. The player, who takes the last stick, wins.
+-}
+
+{- The game -}
+data Player = Alice : Player
+            | Bob   : Player.
+
+eqPlayer : Player -> Player -> Bool.
+eqPlayer Alice Alice = true.
+eqPlayer Bob   Bob   = true.
+eqPlayer _     _     = false.
+
+showPlayer : Player -> String.
+showPlayer Alice = "Alice".
+showPlayer Bob   = "Bob".
+
+{-
+The Game interface provides a single 'move' command, which 
+represents a move by a player in the game. The
+two parameters are a player and the number of sticks
+remaining. The return value is the number of sticks the player
+chooses to take.
+-}
+interface Game = move : Player -> Int -> Int.
+
+{-
+We model the rules of the game as an abstract computation over the
+Game interface that returns the winner.
+
+a game is parameterised by the number of starting sticks
+-}
+game : Int -> [Game]Player.
+game n = aliceTurn n.
+
+aliceTurn : Int -> [Game]Player.
+aliceTurn 0 = Bob.
+aliceTurn n = bobTurn (minus n (move Alice n)).
+
+bobTurn : Int -> [Game]Player.
+bobTurn 0 = Alice.
+bobTurn n = aliceTurn (minus n (move Alice n)).
+
+{-
+Note that this implementation does not check that each player takes
+between one and three sticks on each turn. We will add such a check
+later.
+-}
+
+{- Strategies -}
+
+{- construct a handler that assigns strategy s p to player p -}
+strategy : {Player -> Int -> {Int -> r} -> r} -> [Game]r -> r.
+strategy s x               = x.
+strategy s [move p n -> k] =
+  s p n {x -> strategy s (k x)}.
+
+{- naive strategy: always pick one stick -}
+ns : Int -> {Int -> r} -> r.
+ns n k = k 1.
+
+{- perfect strategy -}
+ps : Int -> {Int -> r} -> r.
+ps n k = k (maximum (mod n 4) 1).
+
+{- both players adopt a naive strategy -}
+nn : Int -> Player.
+nn n = strategy {_, n', k -> ns n' k} (game n).
+{- BUG: if we change n' to n then Frank fails to shadow n properly. -}
+
+{- both players adopt a perfect strategy -}
+pp : Int -> Player.
+pp n = strategy {_, n', k -> ps n' k} (game n).
+
+data MoveTree = Take   : Player -> List (Pair Int MoveTree) -> MoveTree
+              | Winner : Player ->                             MoveTree.
+
+{- list of valid moves given n sticks remaining -}
+validMoves : Int -> List Int.
+validMoves n = filter {m -> gt (plus n 1) m} (Cons 1 (Cons 2 (Cons 3 Nil))).
+
+{-
+Instead of simply evaluating the winner according to some strategy,
+we can also compute other data. For instance, we can compute a tree
+representing the possible moves of each player.
+-}
+
+{- reify a move as part of the move tree -}
+reifyMove : Player -> Int -> {Int -> MoveTree} -> MoveTree.
+reifyMove player n k =
+  bind (map k (validMoves n))               {moves ->
+  bind (zip (range 1 (length moves)) moves) {subgames ->
+  Take player subgames}}.
+
+{- complete move tree generator -}
+mtGen : [Game]Player -> MoveTree.
+mtGen x               = Winner x.
+mtGen [move p n -> k] = reifyMove p n {x -> mtGen (k x)}.
+
+mt : Int -> MoveTree.
+mt n = mtGen (game n).
+
+
+main : Player.
+main = pp 20.
+
+{-
+main : MoveTree.
+main = mt 3.
+-}
