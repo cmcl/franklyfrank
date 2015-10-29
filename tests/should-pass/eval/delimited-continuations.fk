@@ -1,0 +1,17 @@
+{- delimited continuations in Frank -}
+interface Shift0 a r = shift0 : {{a -> r} -> r} -> a.
+
+bind : x -> {x -> y} -> y.
+bind x f = f x.
+
+reset0 : [Shift0 a r]r -> r.
+reset0 x               = x.
+reset0 [shift0 p -> k] = p {x -> reset0 (k x)}.
+
+foo : [Shift0 Int Int]Int.
+foo = 
+  bind (shift0 {k -> k (k (k 7))})
+       {x -> plus (plus x x) 1}.
+
+main : Int.
+main = reset0 (foo!).

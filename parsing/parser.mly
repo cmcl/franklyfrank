@@ -183,8 +183,7 @@ cmd_args:
   ;
 
 cmd_arg:
-  | type_variable                          { $1 }
-  | datatype                               { $1 }
+  | value_type                             { $1 }
   ;
 
 bar_effect_command:
