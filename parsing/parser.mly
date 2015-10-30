@@ -42,7 +42,7 @@ term:
       { ValueDecl.mk $1 $3 |> Term.value_decl }
   | INTERFACE ident opt_type_parameters EQUAL effect_commands DOT
       { EffInterface.mk $2 ~params:$3 ~cmds:$5 () |> Term.effect_in }
-  | ID pattern* EQUAL checkable_computation DOT
+  | ID pattern* EQUAL pat_checkable_computation DOT
       { ValueDefn.mk $1 ~pats:$2 $4 |> Term.value_defn }
   ;
 
@@ -52,17 +52,17 @@ ident:
   ;
 
 checkable_computation:
-  | checkable_value                     { CComputation.cvalue $1 }
+  | checkable_value                    { CComputation.cvalue $1 }
   | clauses = separated_list(BAR, pat_match_computation)
       { CComputation.compose clauses }
   ;
 
 pat_checkable_computation:
   | checkable_value                { CComputation.cvalue $1 }
-  | LPAREN
-      clauses = separated_list(BAR, pat_match_computation)
-    RPAREN
-      { CComputation.compose clauses }
+  (* | LPAREN *)
+  (*     clauses = separated_list(BAR, pat_match_computation) *)
+  (*   RPAREN *)
+  (*     { CComputation.compose clauses } *)
   ;
 
 pat_match_computation:
@@ -70,12 +70,19 @@ pat_match_computation:
       pat_checkable_computation { CComputation.clause $1 $3 }
   ;
 
+(* We'd like like to do this if we could get rid of the reduce/reduce
+     conflicts. *)
+(* pat_match_computation: *)
+(*   | nonempty_list(pattern) RARROW *)
+(*       pat_checkable_computation { CComputation.clause $1 $3 } *)
+(*   ; *)
+
 paren_checkable_computation:
   | paren_checkable_value               { CComputation.cvalue $1 }
-  | LPAREN
-      clauses = separated_list(BAR, pat_match_computation)
-    RPAREN
-      { CComputation.compose clauses }
+  (* | LPAREN *)
+  (*     clauses = separated_list(BAR, pat_match_computation) *)
+  (*   RPAREN *)
+  (*     { CComputation.compose clauses } *)
   ;
 
 checkable_value:
