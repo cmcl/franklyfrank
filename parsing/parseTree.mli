@@ -140,6 +140,9 @@ and src_tvar = string * int
 val string_of_args : string -> ?bbegin:bool -> ?endd:bool ->
   ('a -> string) -> 'a list -> string
 
+(* Extract underlying type from reference. *)
+val unbox : src_type -> src_type
+
 val compare : src_type -> src_type -> int
 (** Comparison function for types conforming to the return semantics of
     [Pervasives.compare]. *)

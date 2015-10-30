@@ -251,7 +251,7 @@ let rec desugar_type' env t =
     -> let (env, es) = map_accum desugar_type' env es in
        let (env, v) = desugar_type' env v in
        let evar = TypExp.effect_var_set in
-       env, TypExp.returner v ~effs:(es ++ evar) ()
+       env, TypExp.returner v ~effs:(evar ++ es) ()
   | Styp_effin (ei, ps) ->
     let (env, ps) = map_accum desugar_type' env ps in
     env, TypExp.effin ei ~params:ps ()
