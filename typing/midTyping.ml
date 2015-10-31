@@ -223,6 +223,8 @@ and inst env t =
        end
   | _ -> inst_with inst env t
 
+and inst_id env t = env, t
+
 and inst_effect_var env e =
   match e.styp_desc with
   | Styp_rtvar ("£", _) -> env.fenv
@@ -249,8 +251,8 @@ and inst_with f env t =
        let (env, r) = inst_with f env r in
        env, TypExp.comp ~args:ts r
   | Styp_ftvar _ (* Will never be outside a ref *)
-  | Styp_eff_set _ (* Will never be outside a ref *)
   | Styp_ref _ (* TODO: Possibly incorrect behaviour *)
+  | Styp_eff_set _
   | Styp_bool
   | Styp_int
   | Styp_float
@@ -363,6 +365,14 @@ and type_clauses env t cls =
 	 | _ -> assert false
        end
   | _ -> let (ts, r) = destruct_comp_type t in
+	 (* Update the ambient effects with the effects that may be performed
+	    by the handler. *)
+	 let es = match (unbox r).styp_desc with
+	          | Styp_ret (es, v) -> es
+		  |        _         -> assert false in
+	 Debug.print "BEFORE (AMB): %s\n" (show_types env.fenv);
+	 let env = {env with fenv = es } in
+	 Debug.print "AFTER (AMB): %s\n" (show_types env.fenv);
 	 let _ = foldl (type_clause env ts) r cls in
 	 t
 
@@ -424,6 +434,11 @@ and type_comp_pattern env (t, cp) =
 	 let ces = TypExp.closed_effect_set in
 	 let arg = cmd.scmd_res in
 	 let arg = TypExp.returner arg ~effs:ces () in
+	 (* Instantiate the effect variable within the return type with the
+	    ambient effects. *)
+	 Debug.print "RET: %s AND AMBIENT: %s\n" (ShowSrcType.show t)
+	   (show_types env.fenv);
+	 let t = snd (inst_with inst_id env t) in
 	 let c = TypExp.comp ~args:[arg] t in
 	 let sc = TypExp.sus_comp c in
 	 { env with tenv = ENV.add r sc env.tenv }

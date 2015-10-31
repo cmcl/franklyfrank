@@ -1,0 +1,18 @@
+data Zero=.
+
+interface Send x = send : x -> Unit.
+
+interface Abort = aborting : Zero.
+
+bind : x -> {x -> y} -> y.
+bind x f = f x.
+
+abort : [Abort]x.
+abort = bind (aborting!) {}.
+
+f : [Send x]a -> [Abort]a.
+f   [send x -> k] = f (k Unit).
+f    x             = x.
+
+main : Int.
+main = 0.
