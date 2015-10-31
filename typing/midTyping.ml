@@ -225,15 +225,17 @@ and inst env t =
 
 and inst_id env t = env, t
 
-and inst_effect_var env e =
+and inst_effect_var' env e =
   match e.styp_desc with
   | Styp_rtvar ("£", _) -> env.fenv
   | _ -> [e]
 
+and inst_effect_var env t = snd (inst_with inst_id env t)
+
 and inst_with f env t =
   match t.styp_desc with
   | Styp_ret (es, v)
-    -> let es = List.flatten (map (inst_effect_var env) es) in
+    -> let es = List.flatten (map (inst_effect_var' env) es) in
        let es = uniq_effect_set es in
        let (env, es) = map_accum (inst_with f) env es in
        let (env, v) = inst_with f env v in
@@ -397,7 +399,7 @@ and type_pattern env (t, p) =
   match t.styp_desc, p.spat_desc with
   | _, Spat_any -> env
   | Styp_ret (es, v), Spat_thunk thk
-    -> let t = snd (inst_with inst_id env t) in
+    -> let t = inst_effect_var env t in
        { env with
            tenv = ENV.add thk (TypExp.sus_comp (TypExp.comp t)) env.tenv }
   | _, Spat_comp cp -> type_comp_pattern env (t, cp)
@@ -439,7 +441,7 @@ and type_comp_pattern env (t, cp) =
 	    ambient effects. *)
 	 Debug.print "RET: %s AND AMBIENT: %s\n" (ShowSrcType.show t)
 	   (show_types env.fenv);
-	 let t = snd (inst_with inst_id env t) in
+	 let t = inst_effect_var env t in
 	 let c = TypExp.comp ~args:[arg] t in
 	 let sc = TypExp.sus_comp c in
 	 { env with tenv = ENV.add r sc env.tenv }
