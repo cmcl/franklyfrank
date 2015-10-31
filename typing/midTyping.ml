@@ -477,7 +477,8 @@ and type_value_pattern env (t, vp) =
   | _, Svpat_any
     -> env
   | _, Svpat_var x
-    -> Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
+    -> let t = inst_effect_var env t in
+       Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
        { env with tenv = ENV.add x t env.tenv }
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
     -> let ctr = unify_ctr env k (length vs) (d, ps) in
