@@ -397,7 +397,8 @@ and type_pattern env (t, p) =
   match t.styp_desc, p.spat_desc with
   | _, Spat_any -> env
   | Styp_ret (es, v), Spat_thunk thk
-    -> { env with
+    -> let t = snd (inst_with inst_id env t) in
+       { env with
            tenv = ENV.add thk (TypExp.sus_comp (TypExp.comp t)) env.tenv }
   | _, Spat_comp cp -> type_comp_pattern env (t, cp)
   (* Value patterns match value types and the underlying value in returners *)

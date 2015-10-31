@@ -11,6 +11,7 @@ abort : [Abort]x.
 abort = bind (aborting!) {}.
 
 pats : [Send x]a      -> [Abort]a.
+pats      [t]         = pats (t!). {- NB: makes pats non-terminating -}
 pats   [send x -> k]  = pats (k Unit).
 pats    x             = x.
 
