@@ -10,9 +10,9 @@ bind x f = f x.
 abort : [Abort]x.
 abort = bind (aborting!) {}.
 
-f : [Send x]a -> [Abort]a.
-f   [send x -> k] = f (k Unit).
-f    x             = x.
+pats : [Send x]a      -> [Abort]a.
+pats   [send x -> k]  = pats (k Unit).
+pats    x             = x.
 
 main : Int.
 main = 0.
