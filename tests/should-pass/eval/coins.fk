@@ -63,14 +63,11 @@ interface Rand = rand : Float.
 
 randomResult : [Choice]a -> [Rand]a.
 randomResult x             = x.
-randomResult [choice -> k] = bind (gtf (rand!) 0.5) {x -> randomResult (k x)}.
-{- it would be nice if we could write this without the bind -}
-{-randomResult (k (gtf (rand!) 0.5)).-}
+randomResult [choice -> k] = randomResult (k (gtf (rand!) 0.5)).
 
 handleRandom : [Rand]a -> [Random]a.
 handleRandom x           = x.
-handleRandom [rand -> k] = bind (random!) {x -> handleRandom (k x)}.
-{-handleRandom [rand -> k] = handleRandom (k (random!)).-}
+handleRandom [rand -> k] = handleRandom (k (random!)).
 
 sampleMaybe : {[Choice, Fail]a} -> [Random]Maybe a.
 sampleMaybe m = handleRandom (maybeResult (randomResult (m!))).
@@ -83,7 +80,6 @@ sample m = handleRandom (persevere (randomResult (m!))).
 of the commands in the input -}
 sample' : [Choice, Fail]a -> [Random]a.
 sample' m = handleRandom (persevere (randomResult m)).
-
 
 {-
 main : List (List Toss).
