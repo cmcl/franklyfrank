@@ -209,8 +209,8 @@ module EvalComp : EVALCOMP = struct
 
   (** Create the builtin environment. *)
   let get_builtins () =
-    let blts = [("gt", gtdef); ("gtf", gtfdef); ("minus", minusdef); ("plus", plusdef);
-	        ("strcat", strcatdef)] in
+    let blts = [("gt", gtdef); ("gtf", gtfdef); ("minus", minusdef);
+		("plus", plusdef); ("strcat", strcatdef)] in
     let add_blt (n,d) env = ENV.add n d env in
     List.fold_right add_blt blts ENV.empty
 
