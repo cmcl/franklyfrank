@@ -223,16 +223,21 @@ and inst env t =
        end
   | _ -> inst_with inst env t
 
-and inst_effect_var env e =
+and inst_id env t = env, t
+
+and inst_effect_var' env e =
   match e.styp_desc with
   | Styp_rtvar ("£", _) ->
     Debug.print "instantiating £ to %s\n" (show_types env.fenv); env.fenv
   | _ -> [e]
 
+and inst_effect_var env t = snd (inst_with inst_id env t)
+
 and inst_with f env t =
   match t.styp_desc with
   | Styp_ret (es, v)
-    -> let es = List.flatten (map (inst_effect_var env) es) in
+    -> let es = List.flatten (map (inst_effect_var' env) es) in
+       let es = uniq_effect_set es in
        let (env, es) = map_accum (inst_with f) env es in
        let (env, v) = inst_with f env v in
        env, TypExp.returner v ~effs:es ()
@@ -249,8 +254,8 @@ and inst_with f env t =
        let (env, r) = inst_with f env r in
        env, TypExp.comp ~args:ts r
   | Styp_ftvar _ (* Will never be outside a ref *)
-  | Styp_eff_set _ (* Will never be outside a ref *)
   | Styp_ref _ (* TODO: Possibly incorrect behaviour *)
+  | Styp_eff_set _
   | Styp_bool
   | Styp_int
   | Styp_float
@@ -344,12 +349,6 @@ and is_uninhabited env v =
 	   (ShowSrcType.show v) in
 	 type_error msg
 
-(* Extract underlying type from reference. *)
-and unbox t =
-  match t.styp_desc with
-  | Styp_ref pt -> Unionfind.find pt
-  | _ -> t
-
 and type_clauses env t cls =
   match (unbox t).styp_desc with
   | Styp_ftvar _
@@ -369,11 +368,19 @@ and type_clauses env t cls =
 	 | _ -> assert false
        end
   | _ -> let (ts, r) = destruct_comp_type t in
+	 (* Update the ambient effects with the effects that may be performed
+	    by the handler. *)
+	 let es = match (unbox r).styp_desc with
+	          | Styp_ret (es, v) -> es
+		  |        _         -> assert false in
+	 Debug.print "BEFORE (AMB): %s\n" (show_types env.fenv);
+	 let env = {env with fenv = es } in
+	 Debug.print "AFTER (AMB): %s\n" (show_types env.fenv);
 	 let _ = foldl (type_clause env ts) r cls in
 	 t
 
 and type_clause env ts r (ps, cc) =
-  Debug.print "%s with %s\n"
+  Debug.print "types: %s with patterns: %s\n"
     (string_of_args ", " ~bbegin:false ShowSrcType.show ts)
     (string_of_args ", " ~bbegin:false ShowPattern.show ps);
   let env = try pat_matches env ts ps with
@@ -393,7 +400,8 @@ and type_pattern env (t, p) =
   match t.styp_desc, p.spat_desc with
   | _, Spat_any -> env
   | Styp_ret (es, v), Spat_thunk thk
-    -> { env with
+    -> let t = inst_effect_var env t in
+       { env with
            tenv = ENV.add thk (TypExp.sus_comp (TypExp.comp t)) env.tenv }
   | _, Spat_comp cp -> type_comp_pattern env (t, cp)
   (* Value patterns match value types and the underlying value in returners *)
@@ -430,6 +438,11 @@ and type_comp_pattern env (t, cp) =
 	 let ces = TypExp.closed_effect_set in
 	 let arg = cmd.scmd_res in
 	 let arg = TypExp.returner arg ~effs:ces () in
+	 (* Instantiate the effect variable within the return type with the
+	    ambient effects. *)
+	 Debug.print "RET: %s AND AMBIENT: %s\n" (ShowSrcType.show t)
+	   (show_types env.fenv);
+	 let t = inst_effect_var env t in
 	 let c = TypExp.comp ~args:[arg] t in
 	 let sc = TypExp.sus_comp c in
 	 { env with tenv = ENV.add r sc env.tenv }
@@ -465,7 +478,8 @@ and type_value_pattern env (t, vp) =
   | _, Svpat_any
     -> env
   | _, Svpat_var x
-    -> Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
+    -> let t = inst_effect_var env t in
+       Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
        { env with tenv = ENV.add x t env.tenv }
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
     -> let ctr = unify_ctr env k (length vs) (d, ps) in
@@ -638,7 +652,49 @@ and type_icomp env ic =
        else type_error "ambient effects not allowed by computation"
 
 and does r es =
-  Debug.print "%s DOES %s\n" (ShowSrcType.show r) (show_types es); true
+  match r.styp_desc with
+  | Styp_ret (es', v) -> Debug.print "%s DOES %s\n" (show_types es')
+                          (show_types es); sub es' es
+  |         _         -> type_error "expected returner type in DOES relation"
+
+and is_interface t =
+  match (unbox t).styp_desc with
+  | Styp_effin _ -> true
+  | _ -> false
+
+and get_interface t =
+  match (unbox t).styp_desc with
+  | Styp_effin (ei, _) -> ei
+  | _ -> assert false
+
+and sub es es' =
+  let is_var t s =
+    match (unbox t).styp_desc with
+    | Styp_rtvar (s', _) when s = s' -> true
+    | _ -> false in
+  let is_empty_set t = is_var t "@" in
+  let is_effect_var t = is_var t "£" in
+  let eq' t s =
+    (is_effect_var t && is_effect_var s) || cmp_eff_interface t s = 0 in
+  let eq r (t, s) = r && eq' t s in
+  match es with
+  | [t] when is_empty_set t -> true
+  | t :: _ when is_effect_var t -> foldl eq true (zip es es')
+  | t :: es when is_interface t -> let ei = get_interface t in
+				   let es' = remove_first es' ei in
+				   sub es es'
+  | _ -> if unify_effect_sets es es' then true
+         else let msg = Printf.sprintf "failed sub: %s <= %s"
+		(show_types es) (show_types es') in
+	      type_error msg
+
+and remove_first es' ei =
+  match es' with
+  | t :: es'' when is_interface t && get_interface t = ei -> es''
+  | t :: es'' -> remove_first es'' ei
+  | [] -> let msg = Printf.sprintf "failed to find %s interface in %s"
+	    ei (show_types es') in
+	  type_error msg
 
 and free_vars t =
   match t.styp_desc with
@@ -675,17 +731,32 @@ and uniq_type t =
 		   {styp_desc = Styp_ref p}
   |  _ -> t
 
+and cmp_eff_interface x y =
+  match (unbox x).styp_desc , (unbox y).styp_desc with
+  | Styp_effin (ei, ps) , Styp_effin (ei', ps')
+    -> let ei_cmp = String.compare ei ei' in
+       let t_cmp = compare x y in
+       if t_cmp = 0 then t_cmp
+       else if ei_cmp = 0 then
+	 (* Try to unify the parameters *)
+	 try
+	   let _ = unify x y in
+	   let t_cmp = compare x y in
+	   if t_cmp = 0 then 0
+	   else (Debug.print "SOMETHING HORRIBLE WENT WRONG (%d)\n" t_cmp;
+		 assert false)
+	 with
+	 | TypeError msg -> -1 (* Don't reorder; shadowing semantics *)
+       else t_cmp
+  | _ , _ -> assert false
+
 and uniq_effect_set xs =
   let cmp x y = (*Temporary hack for effect var*)
     match x.styp_desc , y.styp_desc with
-    | Styp_rtvar ("£", _) , _                   ->  1
-    | _                   , Styp_rtvar ("£", _) -> -1
+    | Styp_rtvar ("£", _) , _                   ->  -1
+    | _                   , Styp_rtvar ("£", _) -> 1
     | Styp_effin (ei, ps) , Styp_effin (ei', ps')
-      -> let ei_cmp = String.compare ei ei' in
-	 let t_cmp = compare x y in
-	 if t_cmp = 0 then t_cmp
-	 else if ei_cmp = 0 then -1 (* Don't reorder; shadowing semantics *)
-	 else t_cmp
+      -> cmp_eff_interface x y
     | _                   , _              -> assert false in
   List.sort_uniq cmp xs
 
@@ -700,53 +771,58 @@ and is_flexible_effect_set xs =
            end
   |  _  -> false
 
+and ext_pt x =
+  match x.styp_desc with
+  | Styp_ref px -> px
+  | _ -> type_error "failed to extract point during unification"
+
+and unify_ftvars x y =
+  let px = ext_pt x in let xt = Unionfind.find px in
+  let py = ext_pt y in let yt = Unionfind.find py in
+  match xt.styp_desc, yt.styp_desc with
+  | Styp_ftvar _ , Styp_ftvar _ -> Unionfind.union px py; true
+  | _ -> false
+
+and unify_flex x y =
+  let px = ext_pt x in
+  let xt = Unionfind.find px in
+  match xt.styp_desc, y.styp_desc with
+  | Styp_ftvar _ , Styp_ftvar _
+    -> assert false (* Handled by unify_ftvars *)
+  | Styp_ftvar _ , _
+    -> if occur_check xt y then (Unionfind.change px y; true) else false
+  | _ , _ -> false (* Handled by unify_concrete *)
+
+and unify' x y =
+  try let _ = unify x y in true with
+  | TypeError _ -> false
+
+and unify_types xs ys =
+  let f = fun acc (t, t') -> acc && unify' t t' in
+  try foldl f true (zip xs ys) with
+  | Invalid_argument _
+    -> let msg = Printf.sprintf "failed to unify lists: %s with %s"
+	 (show_types xs) (show_types ys) in
+       Debug.print "%s\n" msg; false
+
+and unify_effect_sets xs ys =
+  let xs = uniq_effect_set xs in
+  let ys = uniq_effect_set ys in
+  (* May need to perform flexible effect set unification *)
+  if is_flexible_effect_set xs && is_flexible_effect_set ys then
+    unify_ftvars (List.hd xs) (List.hd ys)
+  else if is_flexible_effect_set xs then
+    unify_flex (List.hd xs) (TypExp.eff_set ys)
+  else if is_flexible_effect_set ys then
+    unify_flex (List.hd ys) (TypExp.eff_set xs)
+  else unify_types xs ys
+
 and unify x y =
   let unify_fail x y =
     let msg = Printf.sprintf "failed to unify: %s with %s"
       (ShowSrcType.show x) (ShowSrcType.show y) in
     type_error msg in
-  let ext_pt x =
-    match x.styp_desc with
-    | Styp_ref px -> px
-    | _ -> type_error "failed to extract point during unification" in
-  let unify_ftvars x y =
-    let px = ext_pt x in let xt = Unionfind.find px in
-    let py = ext_pt y in let yt = Unionfind.find py in
-    match xt.styp_desc, yt.styp_desc with
-    | Styp_ftvar _ , Styp_ftvar _ -> Unionfind.union px py; true
-    | _ -> false in
-  let unify_flex x y =
-    let px = ext_pt x in
-    let xt = Unionfind.find px in
-    match xt.styp_desc, y.styp_desc with
-    | Styp_ftvar _ , Styp_ftvar _
-      -> assert false (* Handled by unify_ftvars *)
-    | Styp_ftvar _ , _
-      -> if occur_check xt y then (Unionfind.change px y; true) else false
-    | _ , _ -> false (* Handled by unify_concrete *) in
   let unify_concrete x y =
-    let unify' x y =
-      try let _ = unify x y in true with
-      | TypeError _ -> false in
-    let unify_types xs ys =
-      let f = fun acc (t, t') -> acc && unify' t t' in
-      try foldl f true (zip xs ys) with
-      | Invalid_argument _
-	-> let msg = Printf.sprintf "failed to unify lists: %s with %s"
-	     (show_types xs) (show_types ys) in
-	   Debug.print "%s\n" msg; false in
-    (* Order does not matter for effect sets *)
-    let unify_effect_sets xs ys =
-      let xs = uniq_effect_set xs in
-      let ys = uniq_effect_set ys in
-      (* May need to perform flexible effect set unification *)
-      if is_flexible_effect_set xs && is_flexible_effect_set ys then
-	unify_ftvars (List.hd xs) (List.hd ys)
-      else if is_flexible_effect_set xs then
-	unify_flex (List.hd xs) (TypExp.eff_set ys)
-      else if is_flexible_effect_set ys then
-	unify_flex (List.hd ys) (TypExp.eff_set xs)
-      else unify_types xs ys in
     match x.styp_desc, y.styp_desc with
     | Styp_thunk t          , Styp_thunk t'      -> unify' t t'
     | Styp_rtvar (v, n)     , Styp_rtvar (v', n') ->

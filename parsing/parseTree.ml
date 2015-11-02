@@ -136,11 +136,16 @@ let string_of_args sep ?(bbegin = true) ?(endd = false) f xs = match xs with
     ^ (String.concat sep (List.map f xs)) ^
     (if endd then sep else "")
 
+let unbox t =
+  match t.styp_desc with
+  | Styp_ref pt -> Unionfind.find pt
+  | _ -> t
+
 let rec compare x y =
   let f acc x y =
     if acc != 0 then acc
     else compare x y in
-  match x.styp_desc , y.styp_desc with
+  match (unbox x).styp_desc , (unbox y).styp_desc with
   | Styp_datatype (d, ps) , Styp_datatype (d', ps')
     -> let cmp = String.compare d d' in
        let cmp' = Pervasives.compare (length ps) (length ps') in
