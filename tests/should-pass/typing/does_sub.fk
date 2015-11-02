@@ -18,19 +18,18 @@ pats    x             = x.
 suspat : {[Send x]a}    -> [Abort]a.
 suspat       m           = pats (m!).
 
-interface Rand = rand : Float.
+addAbort : a -> [Abort]a.
+addAbort x = x.
 
-addRand : a -> [Rand]a.
-addRand x = x.
+eatAbort : [Abort]a -> a.
+eatAbort x   = x.
+eatAbort [t] = eatAbort (t!).
 
-randToRandom : [Rand]a -> [Random]a.
-randToRandom x = x.
+foo : {a} -> [Abort]a.
+foo m = addAbort (m!).
 
-foo : {a} -> [Rand]a.
-foo m = addRand (m!).
-
-bar : {a} -> [Random]a.
-bar m = randToRandom (foo m).
+bar : {a} -> a.
+bar m = eatAbort (foo m).
 
 main : Int.
 main = 0.
