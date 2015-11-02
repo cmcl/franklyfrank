@@ -400,7 +400,7 @@ and type_pattern env (t, p) =
   match t.styp_desc, p.spat_desc with
   | _, Spat_any -> env
   | Styp_ret (es, v), Spat_thunk thk
-    -> let t = inst_effect_var env t in
+    -> (* let t = inst_effect_var env t in *)
        { env with
            tenv = ENV.add thk (TypExp.sus_comp (TypExp.comp t)) env.tenv }
   | _, Spat_comp cp -> type_comp_pattern env (t, cp)
@@ -442,7 +442,7 @@ and type_comp_pattern env (t, cp) =
 	    ambient effects. *)
 	 Debug.print "RET: %s AND AMBIENT: %s\n" (ShowSrcType.show t)
 	   (show_types env.fenv);
-	 let t = inst_effect_var env t in
+	 (* let t = inst_effect_var env t in *)
 	 let c = TypExp.comp ~args:[arg] t in
 	 let sc = TypExp.sus_comp c in
 	 { env with tenv = ENV.add r sc env.tenv }
@@ -478,7 +478,7 @@ and type_value_pattern env (t, vp) =
   | _, Svpat_any
     -> env
   | _, Svpat_var x
-    -> let t = inst_effect_var env t in
+    -> (* let t = inst_effect_var env t in *)
        Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
        { env with tenv = ENV.add x t env.tenv }
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
@@ -572,7 +572,7 @@ and type_ivalue env iv =
   | Mivalue_var v -> begin
     let t = try ENV.find v env.tenv with
       | Not_found -> type_error ("undefined identifier " ^ v) in
-    let t = if is_top_level_hdr env v then inst_hdr env t else t in
+    let t = if is_top_level_hdr env v then inst_hdr env t else inst_effect_var env t in
     Debug.print "%s has type %s in env\n" v (ShowSrcType.show (uniq_type t));
     t
                      end
