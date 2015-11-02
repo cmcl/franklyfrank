@@ -22,3 +22,7 @@ val length : 'a list -> int
 val map_accum : ('a -> 'b -> 'a * 'c) -> 'a -> 'b list -> 'a * 'c list
   (** Traverse the list accumulating a result as the first element of
       a pair and the resulting list as the second element. *)
+
+val transpose : 'a list list -> 'a list list
+  (** Take a NxM matrix and return an MxN matrix. Raises a Failure exception
+      if any of the inner lists are empty. *)

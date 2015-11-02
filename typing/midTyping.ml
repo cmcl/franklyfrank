@@ -489,6 +489,18 @@ and type_value_pattern env (t, vp) =
        end
   | _ , _ -> pattern_error t (Pattern.vpat vp) (* Shouldn't happen *)
 
+and covers env e t = true
+  (* let rec extract_patterns cls = *)
+  (*   match cls with *)
+  (*   | [] -> [] *)
+  (*   | (ps, cc) :: cls -> ps :: extract_patterns cls in *)
+  (* (\* Coverage checking for one argument with early exit checking. *\) *)
+  (* let covers' r (t, ps) = true in *)
+  (* match (unbox t).styp_desc, e with *)
+  (* | Styp_comp (ts, r), Mccomp_clauses cls *)
+  (*   -> foldl covers' true (zip ts (transpose (extract_patterns cls))) *)
+  (* |  _ -> true *)
+
 and type_cvalue env res cv =
   match cv, res.styp_desc with
   | Mcvalue_ivalue iv, _
@@ -499,8 +511,13 @@ and type_cvalue env res cv =
 	 (ShowSrcType.show t);
        unify res t
   | Mcvalue_ctr (k, vs), Styp_datatype (d, ts) -> type_ctr env (k, vs) (d, ts)
-  | Mcvalue_thunk cc, Styp_thunk c (** TODO: Add coverage checking *)
-    -> Debug.print "CHECKING THUNK\n"; TypExp.sus_comp (type_ccomp env c cc)
+  | Mcvalue_thunk cc, Styp_thunk c
+    -> if covers env cc c then
+        (Debug.print "CHECKING THUNK\n";
+	 TypExp.sus_comp (type_ccomp env c cc))
+       else let msg = Printf.sprintf "%s does not cover %s"
+	      (ShowMidCComp.show cc) (ShowSrcType.show c) in
+	    type_error msg
   | _ , Styp_ref pt
     -> begin
          match cv, (unbox res).styp_desc with
