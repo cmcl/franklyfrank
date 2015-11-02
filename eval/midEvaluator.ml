@@ -163,13 +163,13 @@ module EvalComp : EVALCOMP = struct
 	| _ -> None
       end
 
-  let pat_matches env cs ps =
+  let pat_matches cs ps =
     if List.length cs > List.length ps then
       raise (invalid_arg "too many arguments")
     else if List.length cs < List.length ps then
       raise (invalid_arg "too few arguments")
     else
-      List.fold_right match_pair (List.combine cs ps) (Some env)
+      List.fold_right match_pair (List.combine cs ps) (Some ENV.empty)
 
   let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
 
@@ -251,6 +251,12 @@ module EvalComp : EVALCOMP = struct
 	Debug.print "Evaluating handler %s...\n" hdr.mhdr_name;
 	eval_tlhdrs env hdr cs) env
 
+  (* Give precedence to ob. *)
+  and extend_env name oa ob =
+    match ob with
+    | Some _ -> ob
+    | None -> oa
+
   and eval_tlhdrs env hdr cs =
     let cls = hdr.mhdr_defs in
     match List.fold_left (eval_clause env cs) None cls with
@@ -265,8 +271,11 @@ module EvalComp : EVALCOMP = struct
 	   Debug.print "%s with %s..."
 	     (string_of_args ", " ~bbegin:false show cs)
 	     (string_of_args ", " ~bbegin:false ShowPattern.show ps);
-           match pat_matches env cs ps with
-	   | Some env' -> Debug.print "true\n"; Some (eval_ccomp env' cc)
+           match pat_matches cs ps with
+	   | Some env'
+	     -> (* Extend env with shadowing environment env'. *)
+                let env'' = ENV.merge extend_env env env' in
+		Debug.print "true\n"; Some (eval_ccomp env'' cc)
 	   | None -> Debug.print "false\n"; None
          end
 

@@ -1,0 +1,5 @@
+foo : Int -> {Int -> Int}.
+foo n = {n -> n}.
+
+main : Int.
+main = (foo 3) 4.
