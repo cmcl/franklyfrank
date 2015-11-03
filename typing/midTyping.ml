@@ -368,14 +368,6 @@ and type_clauses env t cls =
 	 | _ -> assert false
        end
   | _ -> let (ts, r) = destruct_comp_type t in
-	 (* Update the ambient effects with the effects that may be performed
-	    by the handler. *)
-	 let es = match (unbox r).styp_desc with
-	          | Styp_ret (es, v) -> es
-		  |        _         -> assert false in
-	 Debug.print "BEFORE (AMB): %s\n" (show_types env.fenv);
-	 let env = {env with fenv = es } in
-	 Debug.print "AFTER (AMB): %s\n" (show_types env.fenv);
 	 let _ = foldl (type_clause env ts) r cls in
 	 t
 
