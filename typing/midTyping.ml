@@ -525,11 +525,8 @@ and type_cvalue env res cv =
 	      unify res t
 	 | Mcvalue_thunk cc, Styp_ftvar _
 	   -> let c = fresh_ref "c" in
-	      (* let xs = map (fun _ -> fresh_returner ()) ps in *)
-	      (* let y = fresh_returner () in *)
 	      (* Generate the required shape for checking against a thunk. *)
 	      let t = TypExp.sus_comp c in
-	      (* (TypExp.comp ~args:xs y) in *)
 	      (* Unify the existing flexible against this more complex
 		 flexible type variable. *)
 	      let _ = unify res t in
