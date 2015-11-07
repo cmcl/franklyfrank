@@ -662,7 +662,8 @@ and type_icomp env ic =
 and does r es =
   match r.styp_desc with
   | Styp_ret (es', v) -> Debug.print "%s DOES %s\n" (show_types es')
-                          (show_types es); sub es' es
+                          (show_types es);
+                         sub (uniq_effect_set es') (uniq_effect_set es)
   |         _         -> type_error "expected returner type in DOES relation"
 
 and is_interface t =

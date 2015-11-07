@@ -1,0 +1,18 @@
+data List x = Nil  : List x
+            | Cons : x -> (List x) -> (List x).
+
+data Cont x = Z : Cont x
+            | S : x -> Cont x.
+
+interface Send x = send : x -> Unit.
+
+produceList : x -> [Send (List x)]Unit.
+produceList m = send (Cons m Nil).
+
+dup : Cont x -> [Send (List x)]Unit.
+dup   Z   = Unit.
+{- r?£1, Send (List |r?x7|), Send (List |r?x7|) DOES r?£1, Send (List r?x7) -}
+dup (S n) = produceList n.
+
+main : Int.
+main = 0.
