@@ -10,14 +10,6 @@ append (Cons ax xs) ys = Cons ax (append xs ys).
 bind : x -> {x -> y} -> y.
 bind bx f = f bx.
 
-{- This version typechecks just fine. -}
-helpCatter : List x -> [Receive (List x)]List x.
-helpCatter Nil = Nil.
-helpCatter cxs = append cxs (catter!).
-
-catter : [Receive (List x)](List x).
-catter = bind (receive!) helpCatter.
-
 {- This version requires unification to be performed at pattern matching. -}
 inlinedCatter : [Receive (List x)](List x).
 inlinedCatter = bind (receive!) { Nil -> Nil
