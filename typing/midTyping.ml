@@ -236,9 +236,14 @@ and inst_effect_var env t = snd (inst_with inst_id env t)
 and inst_with f env t =
   match t.styp_desc with
   | Styp_ret (es, v)
-    -> let es = List.flatten (map (inst_effect_var' env) es) in
-       let es = uniq_effect_set es in
+    -> (* Instantiate all the effect interfaces before performing uniqueness
+	  filtering. This ensures that any duplicates are not unified
+	  prematurely. The particular choice of instantiating interfaces then
+	  epsilon provides clearer debug output (effect var. instantiation
+          uses rigids). *)
        let (env, es) = map_accum (inst_with f) env es in
+       let es = List.flatten (map (inst_effect_var' env) es) in
+       let es = uniq_effect_set es in
        let (env, v) = inst_with f env v in
        env, TypExp.returner v ~effs:es ()
   | Styp_effin (e, ts)

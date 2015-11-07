@@ -1,0 +1,24 @@
+data List x = Nil  : List x
+            | Cons : x -> (List x) -> (List x).
+
+data Cont x = Z : Cont x
+            | S : x -> Cont x.
+
+interface Send x = send : x -> Unit.
+
+produceList : x -> [Send (List x)]Unit.
+produceList m = send (Cons m Nil).
+
+bind : x -> {x -> y} -> y.
+bind x f = f x.
+
+p : {x} -> x.
+p x = x!.
+
+tvar : Cont x -> [Send (List x)]Unit.
+tvar   Z   = Unit.
+{- Need to instantiate x type variable in ambient: £, Send (List r?x) -}
+tvar (S n) = bind (p {n}) produceList.
+
+main : Int.
+main = 0.
