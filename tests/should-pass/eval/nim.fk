@@ -1,12 +1,30 @@
 {- standard stuff -}
+bind : a -> {a -> b} -> b.
+bind x f = f x.
+
+cond : Bool -> {a} -> {a} -> a.
+cond true  t e = t!.
+cond false t e = e!.
+
 maximum : Int -> Int -> Int.
-maximum 0 n = n.
-maximum m 0 = m.
-maximum m n = plus 1 (maximum (minus m 1) (minus n 1)).
+maximum m n = cond (gt m n) {m} {n}.
+
+minimum : Int -> Int -> Int.
+minimum m n = cond (gt m n) {n} {m}.
+
+lt : Int -> Int -> Bool.
+lt m n = gt n m.
+
+or : Bool -> Bool -> Bool.
+or true  _     = true.
+or _     true  = true.
+or false false = false.
 
 mod : Int -> Int -> Int.
 mod 0 n = 0.
 mod m n = cond (gt m n) {mod (minus m n) n} {m}.
+
+data Zero =.
 
 data Maybe a = Nothing :      Maybe a
              | Just    : a -> Maybe a.
@@ -31,15 +49,16 @@ zip Nil         _           = Nil.
 zip _           Nil         = Nil.
 zip (Cons x xs) (Cons y ys) = Cons (Pair x y) (zip xs ys).
 
+elemIndex' : {a -> a -> Bool} -> Int -> a -> List a -> Maybe Int.
+elemIndex' eq _ _ Nil         = Nothing.
+elemIndex' eq i z (Cons x xs) = cond (eq z x) {Just i} {elemIndex' eq (plus i 1) z xs}.
+
+elemIndex : {a -> a -> Bool} -> a -> List a -> Maybe Int.
+elemIndex eq z xs = elemIndex' eq 0 z xs.
+
 range : Int -> Int -> List Int.
 range m n = cond (gt m n) {Nil} {Cons m (range (plus m 1) n)}.
 
-bind : a -> {a -> b} -> b.
-bind x f = f x.
-
-cond : Bool -> {a} -> {a} -> a.
-cond true  t e = t!.
-cond false t e = e!.
 
 data Pair a b = Pair : a -> b -> Pair a b.
 {- end of standard stuff -}
@@ -119,19 +138,30 @@ ps n k = k (maximum (mod n 4) 1).
 
 {- both players adopt a naive strategy -}
 nn : Int -> Player.
-nn n = strategy {_, n', k -> ns n' k} (game n).
-{- BUG: if we change n' to n then Frank fails to shadow n properly. -}
+nn n = strategy {_, n, k -> ns n k} (game n).
 
 {- both players adopt a perfect strategy -}
 pp : Int -> Player.
-pp n = strategy {_, n', k -> ps n' k} (game n).
+pp n = strategy {_, n, k -> ps n k} (game n).
 
 data MoveTree = Take   : Player -> List (Pair Int MoveTree) -> MoveTree
               | Winner : Player ->                             MoveTree.
 
 {- list of valid moves given n sticks remaining -}
 validMoves : Int -> List Int.
-validMoves n = filter {m -> gt (plus n 1) m} (Cons 1 (Cons 2 (Cons 3 Nil))).
+validMoves n = range 1 (minimum 3 n).
+
+{- brute force strategy: enumerate all possible moves -}
+bfs : Player -> Int -> {Int -> Player} -> Player.
+bfs player n k =
+  bind (map k (validMoves n)) {winners ->
+  bind (elemIndex eqPlayer player winners) { Nothing  -> k 1
+                                           | (Just i) -> k (plus i 1)}}.
+
+{- Alice perfect vs Bob brute force -}
+bp : Int -> Player.
+bp n = strategy { Alice, n, k -> ps      n k
+                | Bob,   n, k -> bfs Bob n k} (game n).
 
 {-
 Instead of simply evaluating the winner according to some strategy,
@@ -154,11 +184,127 @@ mtGen [move p n -> k] = reifyMove p n {x -> mtGen (k x)}.
 mt : Int -> MoveTree.
 mt n = mtGen (game n).
 
+{- Generate a move tree for Alice in anticipation of combining it with
+a strategy for Bob -}
+aliceTree : [Game]Player -> [Game]MoveTree.
+aliceTree x                   = Winner x.
+aliceTree [move Alice n -> k] = reifyMove Alice n {x -> aliceTree (k x)}.
+aliceTree [move Bob   n -> k] =
+  bind (move Bob n) {take -> Take Bob (Cons (Pair take (aliceTree (k take))) Nil)}.
+
+{-
+We reuse the perfect vs perfect handler; it only ever gets to
+handle Move(Bob, n) even though it is defined for Move(Alice, n) as
+well.
+-}
+mp : Int -> MoveTree.
+mp n = strategy {_, n, k -> ps n k} (aliceTree (game n)).
+
+
+{-- Cheating --}
+interface Cheat = cheat : Player -> Int -> Zero.
+
+{-
+cheating p m is invoked when player p cheats by attempting to take
+m sticks (for m < 1 or 3 < m)
+-}
+cheating : Player -> Int -> [Cheat]a.
+cheating p m = bind (cheat p m) {}.
+
+checkMove : Player -> Int -> {Int -> r} -> [Game, Cheat]r.
+checkMove player n k =
+  bind (move player n) {take ->
+  cond (or (lt take 1) (lt 3 take))
+    {cheating player take} {- cheater detected -}
+    {k take}}.
+
+
+check : [Game]r -> [Game, Cheat]r.
+check x                    = x.
+check [move player n -> k] = checkMove player n {x -> check (k x)}.
+
+checkedGame : Int -> [Cheat, Game]Player.
+checkedGame n = check (game n).
+
+{-
+A cheating strategy: take all of the sticks, no matter how many
+remain
+-}
+cheater : Int -> {Int -> r} -> r.
+cheater n k = k n.
+
+{- Alice cheats against Bob's perfect strategy -}
+aliceCheats : {[Game]r} -> r.
+aliceCheats game = strategy { Bob,   n, k -> ps n k
+                            | Alice, n, k -> cheater n k} (game!).
+
+{- in an unchecked game Alice always wins -}
+cpUnchecked : Int -> Player.
+cpUnchecked n = aliceCheats {game n}.
+
+interface Error = anError : String -> Zero.
+
+error : String -> [Error]a.
+error s = bind (anError s) {}.
+
+displayErrors : [Error]a -> [Console]Maybe a.
+displayErrors x                = Just x.
+displayErrors [anError s -> k] = bind (putStrLn s) {_ -> Nothing}.
+
+{- if a player cheats then halt the game with an error -}
+cheatReport : [Cheat]a -> [Error]a.
+cheatReport x                    = x.
+cheatReport [cheat Alice n -> k] = error "Alice Cheated".
+cheatReport [cheat Bob   n -> k] = error "Bob Cheated".
+
+{- if a player cheats then the opponent wins immediately -}
+cheatLose : [Cheat]Player -> Player.
+cheatLose x                    = x.
+cheatLose [cheat Alice n -> k] = Bob.
+cheatLose [cheat Bob n -> k]   = Alice.
+
+{-
+Alice cheats against Bob's perfect strategy
+
+(If n < 4 then Alice wins, otherwise the game is abandoned because
+Alices cheats.)
+-}
+cpReport : Int -> [Console]Maybe Player.
+cpReport n = displayErrors (cheatReport (aliceCheats {checkedGame n})).
+
+{-
+Alice cheats against Bob's perfect strategy
+
+(If n < 4 then Alice wins, otherwise Bob wins because Alice
+cheats.)
+-}
+cpLose : Int -> Player.
+cpLose n = cheatLose (aliceCheats {checkedGame n}).
 
 main : Player.
 main = pp 20.
 
 {-
+main : Player.
+main = bp 20.
+-}
+
+{-
 main : MoveTree.
 main = mt 3.
+-}
+
+{-
+main : MoveTree.
+main = mp 3.
+-}
+
+{-
+main : [Console]Maybe Player.
+main = cpReport 5.
+-}
+
+{-
+main : Player.
+main = cpLose 5.
 -}
