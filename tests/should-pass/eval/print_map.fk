@@ -15,5 +15,5 @@ main = map (semi (putStrLn "Hello, World!") {x -> plus x 1})
    Expected output:
    ----------------
    Hello, World!
-   [1, 2, 3]
+   [2, 3, 4]
 -}
