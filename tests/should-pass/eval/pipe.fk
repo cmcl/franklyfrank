@@ -9,7 +9,7 @@ append (Cons ax xs) ys = Cons ax (append xs ys).
 
 interface Send x = send : x -> Unit.
 
-interface Receive z = receive : z.
+interface Receive x = receive : x.
 
 interface Abort = aborting : Zero.
 
@@ -36,7 +36,8 @@ helpCatter cxs = append cxs (catter!).
 catter : [Receive (List x)](List x).
 catter = bind (receive!) helpCatter.
 
-{-nfind.equivalent (ext_pt x) (ext_pt y
+{- thinking -}
+{-
 catter : [Receive (List X)](List X).
 catter 0 = nil.
 catter n = bind! (receive!) { nil -> nil
@@ -46,7 +47,7 @@ catter n = bind! (receive!) { nil -> nil
 pipe : [Send x]Unit -> [Receive x]y   -> [Abort]y.
 pipe         [_]             y         =     y.
 pipe        Unit            [_]        =   abort!.
-pipe   [send px -> s]   [receive -> r] =  pipe (s Unit) (r px).
+pipe   [send x -> s]   [receive -> r]  =  pipe (s Unit) (r x).
 
 {- Test the matching of any thunk "[_]" in pipe pattern 1 (topmost) -}
 fibSendOneMoreTime : List (List Int).
@@ -57,10 +58,12 @@ fibSendOneMoreTime = Cons
                      (Cons
                          (Cons 3 (Cons 5 (Cons 8 Nil)))
                      (Cons
-                         Nil
+                         (Nil)
                      (Cons
-                         Nil
+                         (Nil)
                       Nil)))).
+
+{- [[1],[1,2],[3,5,8],[],[]] -}
 
 {- Test the matching of any thunk "[_]" in pipe pattern 2 -}
 fib : (List (List Int)).
@@ -72,9 +75,11 @@ sender = sends (fibSendOneMoreTime!).
 senderOfNothin : [Send (List Int)]Unit.
 senderOfNothin = sends (fib!).
 
+{-
 length : (List x) -> Int.
 length Nil = 0.
 length (Cons x xs) = plus 1 (length xs).
+-}
 
 main : [Abort](List Int).
 main = pipe (sender!) (catter!). {- (length! (fib!))).-}
