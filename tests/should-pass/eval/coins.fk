@@ -37,7 +37,7 @@ allResults [fail -> k]   = Nil.
 data Toss = Heads : Toss
           | Tails : Toss.
 
-toss : [Choice, Fail]Toss.
+toss : [Choice]Toss.
 toss = choose Heads Tails.
 
 {- Use the failure handler instead of the fail command here. -}
@@ -57,7 +57,21 @@ persevere'       m           x         = x.
 persevere'       m       [fail -> k]   = persevere' m (m!).
 
 persevere : [Fail]a -> a.
-persevere     [m]    = persevere' m (m!).
+persevere [m] = persevere' m (m!).
+
+{- The above should be equivalent to the following -}
+{-
+persevere : [Fail]a -> a.
+persevere x           = persevere' {x}         x.
+persevere [fail -> k] = persevere' {k (fail!)} (k (fail!)).
+-}
+{- The following clause fails to type check, but should succeed and be
+equivalent to the fail clause above -}
+{- persevere [fail -> k] = bind {k (fail!)} {m -> persevere' m (m!)}. -}
+
+{- This is probably what we should have written instead of persevere -}
+persevere'' : {[Fail]a} -> a.
+persevere'' m = persevere' m (m!).
 
 interface Rand = rand : Float.
 
@@ -86,10 +100,10 @@ main : List (List Toss).
 main = allResults (drunkTosses 3).
 -}
 
+{-
 main : [Random]List (Maybe (List Toss)).
 main = Cons (sampleMaybe {drunkTosses 2}) (Cons (sampleMaybe {drunkTosses 2}) Nil).
+-}
 
-{-
 main : [Random]List Toss.
 main = sample {drunkTosses 3}.
--}
