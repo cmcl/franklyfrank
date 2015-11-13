@@ -1,0 +1,14 @@
+interface Get = get : Int.
+
+bind : x -> {x -> y} -> y.
+bind x f = f x.
+
+foo : [Get]Int.
+foo = get!.
+
+{- all of the following should type-check - none does -}
+main : Int.
+main = bind {foo} {_ -> 42}.
+{-main = bind {foo!} {x -> x}.-}
+{-main = bind {get} {_ -> 42}.-}
+{-main = bind {get!} {_ -> 42}.-}
