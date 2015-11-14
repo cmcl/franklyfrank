@@ -772,12 +772,20 @@ and cmp_eff_interface x y =
 
 and uniq_effect_set xs =
   let cmp x y = (*Temporary hack for effect var*)
-    match x.styp_desc , y.styp_desc with
+    match (unbox x).styp_desc , (unbox y).styp_desc with
     | Styp_rtvar ("£", _) , _                   ->  -1
     | _                   , Styp_rtvar ("£", _) -> 1
     | Styp_effin (ei, ps) , Styp_effin (ei', ps')
       -> cmp_eff_interface x y
-    | _                   , _              -> assert false in
+    (* Flexibles represent replacements of the effect var. Need to keep these
+       at the beginning of any list since they will most likely be unified
+       with a set containining the effect var later. *)
+    | Styp_ftvar _ , Styp_effin _ -> -1
+    | Styp_effin _   , Styp_ftvar _ -> 1
+    | _                   , _
+      -> let msg = Printf.sprintf "uniq_effect_set [%s] at cmp (%s, %s)"
+	   (show_types xs) (ShowSrcType.show x) (ShowSrcType.show y) in
+	 failwith msg in
   List.sort_uniq cmp xs
 
 and is_flexible_effect_set xs =
