@@ -1,0 +1,10 @@
+semi : x -> y -> y.
+semi x y = y.
+
+blah : [Abort]String -> [Console]Bool.
+{- this should fail because Abort isn't defined. -}
+blah      x               = semi (putStrLn "Hello") false.
+blah   [some -> k]        = semi (putStrLn "Hello") false.
+
+main : [Console]Bool.
+main = blah "Hello".

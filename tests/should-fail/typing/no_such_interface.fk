@@ -1,0 +1,6 @@
+semi : x -> y -> y.
+semi x y = y.
+
+main : [Console,Abort]Bool.
+{- Fails because Abort interface is not defined. -}
+main = semi (putStrLn "Hello") false.

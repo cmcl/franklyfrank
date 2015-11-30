@@ -174,6 +174,10 @@ and find_datatype env d =
   try ENV.find d env.denv with
   | Not_found -> type_error ("undefined datatype " ^ d)
 
+and find_interface ei env =
+  try ENV.find ei env.ienv with
+  | Not_found -> type_error ("no such interface " ^ ei)
+
 and find_datatype_from_ctr env k =
   let dts = ENV.bindings env.denv in
   let f (d, (ps, cs)) =
@@ -418,7 +422,7 @@ and type_comp_pattern env (t, cp) =
   match t.styp_desc, cp with
   | Styp_ret (es, v), Scpat_request (c, vs, r)
     -> let es = filter_map just_eis es in
-       let es = map (fun (ei, ts) -> (ei, ts, ENV.find ei env.ienv)) es in
+       let es = map (fun (ei, ts) -> (ei, ts, find_interface ei env)) es in
        let msg = Printf.sprintf "command %s not handled by %s" c
 	 (ShowSrcType.show t) in
        let (ei, ets, ps, cmd) = find_cmd c es msg in
@@ -613,7 +617,7 @@ and show_types ts = string_of_args ", " ~bbegin:false ShowSrcType.show ts
 and type_cmd env c =
   let es = env.fenv in
   let eis = filter_map just_eis es in
-  let eis = map (fun (ei, ts) -> (ei, ts, ENV.find ei env.ienv)) eis in
+  let eis = map (fun (ei, ts) -> (ei, ts, find_interface ei env)) eis in
   let msg = Printf.sprintf "command %s not handled by ambient effects %s"
     c (show_types es) in
   (* Instantiate the command and the parameters of the interface *)
