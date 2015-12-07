@@ -301,7 +301,8 @@ and type_ccomp env res cc =
     -> begin
          match (unbox res).styp_desc with
 	 | Styp_ftvar _ ->
-	   let t = fresh_returner () in
+	   let r = fresh_returner () in
+	   let t = TypExp.comp r in
 	   let _ = type_ccomp env t cc in
 	   unify res t
 	 | _
@@ -516,7 +517,7 @@ and type_cvalue env res cv =
   match cv, res.styp_desc with
   | Mcvalue_ivalue iv, _
     -> Debug.print "CV: Attempting to type %s with %s\n"
-	 (ShowMidIValue.show iv) (ShowSrcType.show res);
+        (ShowMidIValue.show iv) (ShowSrcType.show res);
        let t = type_ivalue env iv in
        Debug.print "Unifying %s with %s\n" (ShowSrcType.show res)
 	 (ShowSrcType.show t);
@@ -656,7 +657,7 @@ and type_icomp env ic =
     -> let t = type_ivalue env iv in
        let (ts, r) = destruct_comp_type t in
        let _ = begin
-	         try map (fun (t, c) -> type_ccomp env t c) (zip ts cs) with
+                 try map (fun (t, c) -> type_ccomp env t c) (zip ts cs) with
 		 | Invalid_argument _
 		   -> type_error (Printf.sprintf
 				    "Cannot match %s with %s: %d with %d"
@@ -669,10 +670,27 @@ and type_icomp env ic =
        else type_error "ambient effects not allowed by computation"
 
 and does r es =
+  let fp_soln es es' =
+    let (t,ts) = (List.hd es',List.tl es') in
+    let es2 = fresh_ref "es" in
+    let _ = unify_flex t (TypExp.eff_set (es2::ts)) in
+    (es, es') in
   match r.styp_desc with
-  | Styp_ret (es', v) -> Debug.print "%s DOES %s\n" (show_types es')
-                          (show_types es);
-                         sub (uniq_effect_set es') (uniq_effect_set es)
+  | Styp_ret (es', v)
+    -> Debug.print "%s DOES %s\n" (show_types es')
+    (show_types es);
+      let es' = uniq_effect_set es' in
+      let es = uniq_effect_set es in
+      (* Sub-effecting is currently broken. *)
+      (*sub es' es*)
+      (* Check for a recursive equation *)
+      let b = length es' > 1 && is_flexible_effect_set es in
+      let bs = map (not @ (occur_check (List.hd es))) es' in
+      let b = b && (foldl (||) false bs) in
+      let (es,es') = if b then fp_soln es es' else (es,es') in
+      (* Attempt to unify the effect sets. Thus we require the computation's
+         effect set to be equal to the ambient. *)
+      unify_effect_sets es' es
   |         _         -> type_error "expected returner type in DOES relation"
 
 and is_interface t =
@@ -684,6 +702,14 @@ and get_interface t =
   match (unbox t).styp_desc with
   | Styp_effin (ei, _) -> ei
   | _ -> assert false
+
+(* Unboxing for an effect set. *)
+and unbox_singleton t =
+  match (unbox t).styp_desc with
+  | Styp_eff_set es -> es
+  | _ -> [t]
+
+and unbox_set es = List.flatten (map unbox_singleton es)
 
 and sub es es' =
   let error es es' =
@@ -721,7 +747,7 @@ and remove_first es' ei =
 	  type_error msg
 
 and free_vars t =
-  match t.styp_desc with
+  match (unbox t).styp_desc with
   | Styp_datatype (_, ts)
   | Styp_effin (_, ts)    -> List.flatten (map free_vars ts)
 
@@ -838,8 +864,8 @@ and unify_types xs ys =
        Debug.print "%s\n" msg; false
 
 and unify_effect_sets xs ys =
-  let xs = uniq_effect_set xs in
-  let ys = uniq_effect_set ys in
+  let xs = uniq_effect_set (unbox_set xs) in
+  let ys = uniq_effect_set (unbox_set ys) in
   (* May need to perform flexible effect set unification *)
   if is_flexible_effect_set xs && is_flexible_effect_set ys then
     unify_ftvars (List.hd xs) (List.hd ys)
@@ -855,6 +881,8 @@ and unify x y =
       (ShowSrcType.show x) (ShowSrcType.show y) in
     type_error msg in
   let unify_concrete x y =
+    Debug.print "unifying %s with %s\n" (ShowSrcType.show x)
+      (ShowSrcType.show y);
     match x.styp_desc, y.styp_desc with
     | Styp_thunk t          , Styp_thunk t'      -> unify' t t'
     | Styp_rtvar (v, n)     , Styp_rtvar (v', n') ->

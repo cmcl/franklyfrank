@@ -31,5 +31,8 @@ foo m = addAbort (m!).
 bar : {a} -> a.
 bar m = eatAbort (foo m).
 
+baz : {[Abort]Int}.
+baz = bind {abort!} {x -> x}.
+
 main : Int.
 main = 0.

@@ -260,7 +260,8 @@ module rec ShowSrcType : SHOW with type t = src_type = struct
     | Styp_eff_set es -> "[" ^ String.concat ", " (List.map show es) ^ "]"
     | Styp_bool -> "Bool"
     | Styp_comp (args, res)
-      -> (string_of_args " -> " ~bbegin:false ~endd:true show args) ^ show res
+      -> "#" ^ (string_of_args " -> " ~bbegin:false ~endd:true show args) ^
+      show res  ^ "#"
     | Styp_datatype (k, ts)
       -> "(" ^ k ^ string_of_args " " show ts ^ ")"
     | Styp_effin (s, ts)
