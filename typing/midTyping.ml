@@ -35,6 +35,28 @@ type env =
 			      their parameters and command declarations. *)
   }
 
+type type_sig = All
+
+module type TSS = sig
+  type t
+  val empty : t
+  (** Return an empty set. *)
+  val mem : type_sig -> t -> bool
+  (** Return true if the set contains the specified type signature false
+      otherwise. *)
+end
+
+module TypeSigSet = struct
+  module M = Set.Make(struct
+    type t = type_sig
+    let compare = Pervasives.compare
+  end)
+  type t = M.t
+  let empty = M.empty
+  let mem = M.mem
+end
+(** Set containing type signatures. *)
+
 let type_error msg = raise (TypeError msg)
 
 let just_hdrs = function Mtld_handler hdr -> Some hdr | _ -> None
@@ -119,6 +141,8 @@ let add_builtins env =
 	  (HENV.add "minus" env.henv))));
       ienv }
 
+let compute_signature env t = TypeSigSet.empty
+
 let rec type_prog prog =
   let fenv = get_main_effect_set prog in
   let env = { tenv = ENV.empty; venv = VENV.empty; fenv; denv=ENV.empty;
@@ -127,7 +151,7 @@ let rec type_prog prog =
   let env = foldl extend_env env prog in
   let hdrs = filter_map just_hdrs prog in
   let _ = map (type_hdr env) hdrs in
-  try ENV.find "main" env.tenv with
+  try ENV.find "main" env.tenv, env with
   | Not_found -> type_error "There must exist a unique main function"
 
 and get_main_effect_set prog =

@@ -51,7 +51,7 @@ let loop filename =
   } in
   let (mtree, hmap, ctrs, cmds) = parse_file lexbuf in
   Debug.print "%s" (ShowMidProg.show mtree);
-  let t = type_with_error mtree in
+  let (t, env) = type_with_error mtree in
   Debug.print "Program typechecked with main : %s" (ShowSrcType.show t);
   let res = EvalComp.eval hmap mtree in
   Debug.print "%s\n" (EvalComp.show res);
