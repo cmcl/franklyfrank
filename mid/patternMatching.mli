@@ -11,7 +11,7 @@ type value = MidTree.mid_cvalue
 
 type clause = pattern vector * action
 type pmatrix = pattern matrix
-type cmatrix = clause matrix
+type cmatrix = clause vector
 (** Shorthands. *)
 
 type dtree =
@@ -25,7 +25,6 @@ type dtree =
 and case =
   CseDefault of dtree
 | CseCtr of string * dtree
-    deriving (Show)
 (** Cases which occur at multi-way test nodes within a decision tree. *)
 
 (* Pattern and value operations. *)

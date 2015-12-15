@@ -2,6 +2,8 @@ let (++) = List.append
 let hd = List.hd
 let tl = List.tl
 
+let rec repeat x n = if n <= 0 then [] else x :: (repeat x (n-1))
+
 let filter_map f xs =
   let ff x xs = match f x with
                 | None -> xs
