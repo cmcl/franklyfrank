@@ -35,7 +35,15 @@ type env =
 			      their parameters and command declarations. *)
   }
 
-type type_sig = All
+type type_sig =
+  TSAllValues
+(* Float, Int, String and unknown value types since they are effectively
+   infinite. *)
+| TSTrue
+| TSFalse
+(* Special cases for booleans since they have enumerable constructors. *)
+| TSCmd of string
+| TSCtr of string
 
 module type TSS = sig
   type t
@@ -44,6 +52,8 @@ module type TSS = sig
   val mem : type_sig -> t -> bool
   (** Return true if the set contains the specified type signature false
       otherwise. *)
+  val union : t -> t -> t
+  (** Return the union of the provided sets. *)
 end
 
 module TypeSigSet = struct
@@ -54,6 +64,9 @@ module TypeSigSet = struct
   type t = M.t
   let empty = M.empty
   let mem = M.mem
+  let singleton = M.singleton
+  let union = M.union
+  let add = M.add
 end
 (** Set containing type signatures. *)
 
@@ -140,8 +153,6 @@ let add_builtins env =
 				   (HENV.add "strcat"
 	  (HENV.add "minus" env.henv))));
       ienv }
-
-let compute_signature env t = TypeSigSet.empty
 
 let rec type_prog prog =
   let fenv = get_main_effect_set prog in
@@ -950,3 +961,33 @@ and unify x y =
   | false , false
     -> if unify_concrete x y then x
        else unify_fail x y
+
+let rec compute_signature env t =
+  match (unbox t).styp_desc with
+  | Styp_datatype (d, ts)
+    -> let (_, cs) = find_datatype env d in
+       let ctrs = map (fun ctr -> TSCtr ctr.sctr_name) cs in
+       foldl (fun s c -> TypeSigSet.add c s) TypeSigSet.empty ctrs
+  | Styp_thunk _ -> TypeSigSet.singleton TSAllValues
+  | Styp_tvar _ -> TypeSigSet.empty
+  | Styp_rtvar ("£", _) -> TypeSigSet.empty
+  | Styp_rtvar _
+    -> (* Captures all possible values. *)
+       TypeSigSet.singleton TSAllValues
+  | Styp_ftvar _ -> TypeSigSet.empty
+  | Styp_eff_set _ -> TypeSigSet.empty
+  | Styp_comp (_, _) -> TypeSigSet.empty
+  | Styp_ret (ts, v)
+    -> let f s t = TypeSigSet.union (compute_signature env t) s in
+       let s = foldl f TypeSigSet.empty ts in
+       TypeSigSet.union s (compute_signature env v)
+  | Styp_effin (ei, ts)
+    -> let (_, cs) = find_interface ei env in
+       let cmds = map (fun cmd -> TSCmd cmd.scmd_name) cs in
+       foldl (fun s c -> TypeSigSet.add c s) TypeSigSet.empty cmds
+  | Styp_bool
+    -> TypeSigSet.add TSTrue (TypeSigSet.add TSFalse TypeSigSet.empty)
+  | Styp_int -> TypeSigSet.singleton TSAllValues
+  | Styp_float -> TypeSigSet.singleton TSAllValues
+  | Styp_str -> TypeSigSet.singleton TSAllValues
+  | _ -> TypeSigSet.empty
