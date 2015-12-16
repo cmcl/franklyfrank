@@ -13,8 +13,10 @@ type env
 
 type type_sig =
   TSAllValues
-(* Float, Int, String and unknown value types since they are effectively
-   infinite. *)
+(* The top element of the lattice for value type signatures. *)
+| TSInt of int
+| TSFloat of float
+| TSStr of string
 | TSTrue
 | TSFalse
 (* Special cases for booleans since they have enumerable constructors. *)
@@ -32,6 +34,10 @@ module type TSS = sig
       otherwise. *)
   val union : t -> t -> t
   (** Return the union of the provided sets. *)
+  val add : type_sig -> t -> t
+  (** Add an type signature to the set if it is not already present. *)
+  val singleton : type_sig -> t
+  (** Return a singleton set containing the specified element. *)
 end
 
 module TypeSigSet : TSS

@@ -76,9 +76,46 @@ let prmatrix m =
     (string_of_patterns ps) ^ " -> " ^ (ShowMidCComp.show a) in
   iter (fun c -> print_endline (string_of_clause c)) m
 
-let specialise c n m = []
+let specialise k n = []
+(* TODO: Specialise on type signatures not ctrs. *)
+  (* let clausegen k ps a = *)
+  (*   match ps with *)
+  (*   | p :: ps *)
+  (*     -> begin match p.spat_desc with *)
+  (*        | Spat_value vp *)
+  (* 	   -> begin match vp with *)
+  (*  	      | Svpat_any -> [(repeat (Pattern.any_value ()) n ++ ps, a)] *)
+  (* 	      | Svpat_ctr (k', ps') when k = k' -> [(ps' ++ ps, a)] *)
+  (* 	      | Svpat_var v -> [(repeat (Pattern.any_value ()) n ++ ps, a)] *)
+  (*     	      end *)
+  (* 	 | Spat_comp (Scpat_request (c, vs, r)) when c = k -> *)
+  (* 	 | _ -> [] *)
+  (*        end *)
+  (*   | [] -> [] in *)
+  (* flatten (map (fun (ps, a) -> clausegen c ps a) m) *)
 
 let default m = []
+
+(** Compute head values in patterns [ps]. *)
+let compute_heads ps =
+  let compute_hd p =
+    match p.spat_desc with
+    | Spat_value vp -> begin
+                         match vp with
+			 | Svpat_any
+			 | Svpat_var _ (* FIXME: Possibly wrong. *)
+			   -> TypeSigSet.singleton TSAllValues
+			 | Svpat_ctr (k, _) -> TypeSigSet.singleton (TSCtr k)
+			 | Svpat_int n -> TypeSigSet.singleton (TSInt n)
+			 | Svpat_float f -> TypeSigSet.singleton (TSFloat f)
+			 | Svpat_str s -> TypeSigSet.singleton (TSStr s)
+			 | Svpat_bool b
+			   -> let x = if b then TSTrue else TSFalse in
+			      TypeSigSet.singleton x
+                       end
+    | Spat_comp (Scpat_request (c, _, _)) -> TypeSigSet.singleton (TSCmd c)
+    | _ -> TypeSigSet.empty in
+  foldl TypeSigSet.union TypeSigSet.empty (map compute_hd ps)
 
 let matches m v = None
 
