@@ -38,14 +38,12 @@ type env =
 type type_sig =
   TSAllValues
 (* The top element of the lattice for value type signatures. *)
-| TSInt of int
+| TSBool of bool
 | TSFloat of float
+| TSInt of int
 | TSStr of string
-| TSTrue
-| TSFalse
-(* Special cases for booleans since they have enumerable constructors. *)
-| TSCmd of string
-| TSCtr of string
+| TSCmd of string * int (* constructor name and arity. *)
+| TSCtr of string * int (* command name and arity *)
 
 module type TSS = sig
   type t
@@ -972,7 +970,8 @@ let rec compute_signature env t =
   match (unbox t).styp_desc with
   | Styp_datatype (d, ts)
     -> let (_, cs) = find_datatype env d in
-       let ctrs = map (fun ctr -> TSCtr ctr.sctr_name) cs in
+       let make_tsg ctr = TSCtr (ctr.sctr_name, length ctr.sctr_args) in
+       let ctrs = map make_tsg cs in
        foldl (fun s c -> TypeSigSet.add c s) TypeSigSet.empty ctrs
   | Styp_thunk _ -> TypeSigSet.singleton TSAllValues
   | Styp_tvar _ -> TypeSigSet.empty
@@ -989,10 +988,12 @@ let rec compute_signature env t =
        TypeSigSet.union s (compute_signature env v)
   | Styp_effin (ei, ts)
     -> let (_, cs) = find_interface ei env in
-       let cmds = map (fun cmd -> TSCmd cmd.scmd_name) cs in
+       let make_tsg cmd = TSCmd (cmd.scmd_name, length cmd.scmd_args) in
+       let cmds = map make_tsg cs in
        foldl (fun s c -> TypeSigSet.add c s) TypeSigSet.empty cmds
   | Styp_bool
-    -> TypeSigSet.add TSTrue (TypeSigSet.add TSFalse TypeSigSet.empty)
+    -> TypeSigSet.add (TSBool true)
+    (TypeSigSet.add (TSBool false) TypeSigSet.empty)
   | Styp_int -> TypeSigSet.singleton TSAllValues
   | Styp_float -> TypeSigSet.singleton TSAllValues
   | Styp_str -> TypeSigSet.singleton TSAllValues

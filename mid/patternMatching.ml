@@ -1,6 +1,8 @@
 open List
 open MidTree
+open MidTyping
 open ParseTree
+open ParseTreeBuilder
 open ListUtils
 open Utility
 
@@ -60,7 +62,7 @@ let not_inst p v = not (is_inst p v)
 
 let string_of_pattern = ShowPattern.show
 
-let string_of_patterns = string_of_args ", " ~bbegin:true string_of_pattern
+let string_of_patterns = string_of_args ", " ~bbegin:false string_of_pattern
 
 let to_columns m =
   let cons = fun p ps -> p :: ps in
@@ -76,44 +78,98 @@ let prmatrix m =
     (string_of_patterns ps) ^ " -> " ^ (ShowMidCComp.show a) in
   iter (fun c -> print_endline (string_of_clause c)) m
 
-let specialise k n = []
-(* TODO: Specialise on type signatures not ctrs. *)
-  (* let clausegen k ps a = *)
-  (*   match ps with *)
-  (*   | p :: ps *)
-  (*     -> begin match p.spat_desc with *)
-  (*        | Spat_value vp *)
-  (* 	   -> begin match vp with *)
-  (*  	      | Svpat_any -> [(repeat (Pattern.any_value ()) n ++ ps, a)] *)
-  (* 	      | Svpat_ctr (k', ps') when k = k' -> [(ps' ++ ps, a)] *)
-  (* 	      | Svpat_var v -> [(repeat (Pattern.any_value ()) n ++ ps, a)] *)
-  (*     	      end *)
-  (* 	 | Spat_comp (Scpat_request (c, vs, r)) when c = k -> *)
-  (* 	 | _ -> [] *)
-  (*        end *)
-  (*   | [] -> [] in *)
-  (* flatten (map (fun (ps, a) -> clausegen c ps a) m) *)
+(** Specialises the matrix [m] using the specialisation function [specf]. If
+    [specf] returns [(true, xs)] for some list [xs] then the function
+    generates a row with [xs] prepended to the remaining patterns of the
+    row. If [specf] returns [(false, xs)] for some list [xs] the list is
+    ignored and no row is produced. *)
+let specialise_using_fun specf m =
+  let clausegen (ps, a) =
+    match ps with
+    | p :: ps -> let (b, xs) = specf p in
+		 if b then [(xs ++ ps, a)] else []
+    | [] -> [] in
+  flatten (map clausegen m)
 
-let default m = []
+let specialise tsg m =
+  (* The following conditions are true for all value type signatures with
+     arity n. *)
+  let defaults_for_values p n =
+    match p.spat_desc with
+    | Spat_value Svpat_any
+    | Spat_value (Svpat_var _)
+    | Spat_any
+    | Spat_thunk _ -> (true, repeat (Pattern.vpat (Pattern.any_value ())) n)
+    | _ -> (false, []) in
+  match tsg with
+  | TSAllValues -> let val_spec p = defaults_for_values p 0 in
+		   specialise_using_fun val_spec m
+  | TSBool b -> let bool_spec p =
+		  match p.spat_desc with
+		  | Spat_value (Svpat_bool b') -> (b = b', [])
+		  | _ -> defaults_for_values p 0 in
+		specialise_using_fun bool_spec m
+  | TSFloat f -> let float_spec p =
+		   match p.spat_desc with
+		   | Spat_value (Svpat_float f') -> (f = f', [])
+		   | _ -> defaults_for_values p 0 in
+		 specialise_using_fun float_spec m
+  | TSInt n -> let int_spec p =
+		 match p.spat_desc with
+		 | Spat_value (Svpat_int n') -> (n = n', [])
+		 | _ -> defaults_for_values p 0 in
+	       specialise_using_fun int_spec m
+  | TSStr s -> let str_spec p =
+		 match p.spat_desc with
+		 | Spat_value (Svpat_str s') -> (s = s', [])
+		 | _ -> defaults_for_values p 0 in
+	       specialise_using_fun str_spec m
+  | TSCtr (k, n) -> let ctr_spec p =
+		      match p.spat_desc with
+		      | Spat_value (Svpat_ctr (k', ps))
+			-> (k = k', map Pattern.vpat ps)
+		      | _ -> defaults_for_values p n in
+		    specialise_using_fun ctr_spec m
+  | TSCmd (c, n) -> let cmd_spec p =
+		      match p.spat_desc with
+		      | Spat_comp (Scpat_request (c', vs, r))
+			-> let p = Pattern.vpat (Pattern.var r) in
+			   let vs' = map Pattern.vpat vs in
+			   (c = c', vs' ++ [p])
+		      | _ -> (false, []) in
+		    specialise_using_fun cmd_spec m
 
-(** Compute head values in patterns [ps]. *)
+let default m =
+  let clausegen (ps, a) =
+    match ps with
+    | p :: ps
+      -> begin match p.spat_desc with
+         | Spat_value _
+	 | Spat_comp _ -> []
+	 | Spat_any
+	 | Spat_thunk _ -> [(ps, a)]
+         end
+    | [] -> [] in
+  flatten (map clausegen m)
+
+(** Compute head type signatures in patterns [ps]. *)
 let compute_heads ps =
   let compute_hd p =
     match p.spat_desc with
     | Spat_value vp -> begin
                          match vp with
 			 | Svpat_any
-			 | Svpat_var _ (* FIXME: Possibly wrong. *)
+			 | Svpat_var _
 			   -> TypeSigSet.singleton TSAllValues
-			 | Svpat_ctr (k, _) -> TypeSigSet.singleton (TSCtr k)
+			 | Svpat_ctr (k, vs)
+			   -> TypeSigSet.singleton (TSCtr (k, length vs))
 			 | Svpat_int n -> TypeSigSet.singleton (TSInt n)
 			 | Svpat_float f -> TypeSigSet.singleton (TSFloat f)
 			 | Svpat_str s -> TypeSigSet.singleton (TSStr s)
-			 | Svpat_bool b
-			   -> let x = if b then TSTrue else TSFalse in
-			      TypeSigSet.singleton x
+			 | Svpat_bool b -> TypeSigSet.singleton (TSBool b)
                        end
-    | Spat_comp (Scpat_request (c, _, _)) -> TypeSigSet.singleton (TSCmd c)
+    | Spat_comp (Scpat_request (c, vs, _))
+      -> TypeSigSet.singleton (TSCmd (c, length vs + 1))
     | _ -> TypeSigSet.empty in
   foldl TypeSigSet.union TypeSigSet.empty (map compute_hd ps)
 

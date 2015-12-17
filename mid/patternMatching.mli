@@ -35,6 +35,8 @@ val is_inst_vec : pattern vector -> value vector -> bool
     of pattern [p]. Defined as (NB: infix notation "<=" for is_instance):
     * _ <= v
     * c(p1,...,pN) <= c(v1,...,vN) iff (p1,...,pN) <= (v1,...,vN)
+    * [c (p1,...pN) -> k] <= c v1,...,vN iff (p1,...,pN) <= (v1,...,vN)
+    * Other cases for builtins: bool, float, int, etc.
     * (p1,...,pN) <= (v1,...,vN) iff for all i, pi <= vi
     The last case is on sequences of patterns (a pattern vector).
 *)
@@ -63,15 +65,15 @@ val prmatrix : cmatrix -> unit
 
 (* Matrix decomposition operations. *)
 
-val specialise : string -> int -> cmatrix -> cmatrix
-(** [specialise c n m] simplify [m] by assuming that the first value admits
-    [c] as a head constructor (with arity [n]) and return the resulting
-    simplified clause matrix. *)
+val specialise : MidTyping.type_sig -> cmatrix -> cmatrix
+(** [specialise tsg m] simplify [m] by assuming that the first value admits
+    [tsg] as a type signature and return the resulting simplified clause
+    matrix. *)
 
 val default : cmatrix -> cmatrix
 (** [default m] returns the "default" matrix computed from [m] which retains
-    the rows of [m] whose first pattern admits as instances all constructors
-    that are not present in the first column of [m]. *)
+    the rows of [m] whose first pattern admits as instances all type
+    signatures that are not present in the first column of [m]. *)
 
 (* Matching, evaluation and compilation operations. *)
 

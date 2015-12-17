@@ -14,14 +14,12 @@ type env
 type type_sig =
   TSAllValues
 (* The top element of the lattice for value type signatures. *)
-| TSInt of int
+| TSBool of bool
 | TSFloat of float
+| TSInt of int
 | TSStr of string
-| TSTrue
-| TSFalse
-(* Special cases for booleans since they have enumerable constructors. *)
-| TSCmd of string
-| TSCtr of string
+| TSCmd of string * int (* constructor name and arity. *)
+| TSCtr of string * int (* command name and arity *)
 
 (** The signature of a type; all its possible head constructors. *)
 

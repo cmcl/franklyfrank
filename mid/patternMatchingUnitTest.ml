@@ -27,6 +27,8 @@ let int_val n = ival (Mivalue_int n)
 let float_val f = ival (Mivalue_float f)
 let str_val s = ival (Mivalue_str s)
 
+let make_iexp n = Mccomp_cvalue (Mcvalue_ivalue (Mivalue_int n))
+
 let ps =
   [int_pat 1;
    bool_pat false;
@@ -45,9 +47,19 @@ let vs =
    float_val 1.2;
    ctr_val "Unit" []]
 
+let pa =
+  [([ctr_pat "Nil" []; any_pat ()], make_iexp 1);
+   ([any_pat (); ctr_pat "Nil" []], make_iexp 2);
+   ([ctr_pat "Cons" [any_vpat (); var_vpat "xs"];
+     ctr_pat "Cons" [any_vpat (); var_vpat "ys"]], make_iexp 3)]
+
 let run_test p v =
   let msg = ShowPattern.show p ^ " <= " ^ ShowMidCValue.show v in
   print_endline (msg ^ " = " ^ (string_of_bool (is_inst p v)))
 
 let main =
-  List.map (uncurry run_test) (List.combine ps vs)
+  List.iter (uncurry run_test) (List.combine ps vs);
+  print_endline "----P -> A------";
+  prmatrix pa;
+  print_endline "----S((::), P->A)-----Specialising to Cons----";
+  prmatrix (specialise (MidTyping.TSCtr ("Cons", 2)) pa);
