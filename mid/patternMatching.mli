@@ -60,6 +60,12 @@ val of_columns : pmatrix -> action vector -> cmatrix
 (** [of_columns ps rs] returns a matrix computed from the transpose of the
     pattern matrix and the column of actions. *)
 
+val get_pmatrix : cmatrix -> pmatrix
+(** [get_pmatrix m] returns the pattern matrix of the given clause matrix. *)
+
+val prpatmatrix : pmatrix -> unit
+(** [prpatmatrix m] print the pattern matrix [m] to standard output. *)
+
 val prmatrix : cmatrix -> unit
 (** [prmatrix m] print the matrix m to standard output. *)
 
@@ -77,10 +83,10 @@ val default : cmatrix -> cmatrix
 
 (* Matching, evaluation and compilation operations. *)
 
-val matches : pmatrix -> value -> int option
-(** [matches p v] returns the row [Some j] of [p] which filters [v] i.e. [v]
-    matches row [Some j]. [None] is returned if [v] does not match any row in
-    [p].*)
+val matches : value vector -> pmatrix -> int option
+(** [matches vs p] returns the row [Some j] of [p] which filters [vs]
+    i.e. [vs] matches row [Some j]. [None] is returned if [vs] does not match
+    any row in [p].*)
 
 val eval_dtree : value list -> dtree -> action
 (** [eval vs t] evaluates the decision tree [t] w.r.t the stack of values [vs]

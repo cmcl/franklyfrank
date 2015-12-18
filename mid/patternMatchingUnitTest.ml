@@ -29,6 +29,12 @@ let str_val s = ival (Mivalue_str s)
 
 let make_iexp n = Mccomp_cvalue (Mcvalue_ivalue (Mivalue_int n))
 
+(* Helper constructors for values. *)
+let make_cons x xs = ctr_val "Cons" [x; xs]
+let make_nil () = ctr_val "Nil" []
+let make_unit () = ctr_val "Unit" []
+let make_one () = make_cons (make_unit ()) (make_nil ())
+
 let ps =
   [int_pat 1;
    bool_pat false;
@@ -57,9 +63,25 @@ let run_test p v =
   let msg = ShowPattern.show p ^ " <= " ^ ShowMidCValue.show v in
   print_endline (msg ^ " = " ^ (string_of_bool (is_inst p v)))
 
+let run_match_test (km, m) (kvs, vs) =
+  let msg = "matches " ^ kvs ^ " " ^ km ^ " = " in
+  let res = matches vs m in
+  print_endline (msg ^ Show.show<int option> res)
+
+let gen_tests () =
+  let vs1 = [make_nil (); make_one ()] in
+  let vs2 = [make_one (); make_nil ()] in
+  let vs3 = [make_one (); make_one ()] in
+  [("vs1", vs1); ("vs2", vs2); ("vs3", vs3)]
+
 let main =
   List.iter (uncurry run_test) (List.combine ps vs);
   print_endline "----P -> A------";
   prmatrix pa;
   print_endline "----S((::), P->A)-----Specialising to Cons----";
   prmatrix (specialise (MidTyping.TSCtr ("Cons", 2)) pa);
+  let pm = get_pmatrix pa in
+  print_endline "---just the patterns----";
+  prpatmatrix pm;
+  List.iter (run_match_test ("P", pm)) (gen_tests ())
+

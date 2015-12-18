@@ -73,6 +73,11 @@ let to_columns m =
 
 let of_columns ps rs = combine (transpose ps) rs
 
+let get_pmatrix = transpose @ fst @ to_columns
+
+let prpatmatrix m =
+  iter (fun ps -> print_endline (string_of_patterns ps)) m
+
 let prmatrix m =
   let string_of_clause (ps, a) =
     (string_of_patterns ps) ^ " -> " ^ (ShowMidCComp.show a) in
@@ -173,7 +178,16 @@ let compute_heads ps =
     | _ -> TypeSigSet.empty in
   foldl TypeSigSet.union TypeSigSet.empty (map compute_hd ps)
 
-let matches m v = None
+let matches vs m =
+  let matches_row j vs ps =
+    if is_inst_vec ps vs then Some j else None in
+  let find_match a ps =
+    match a with
+    | (Some _, _) -> a (* Exit as soon as a match is found. *)
+    | (None, j) -> (matches_row j vs ps, j+1) in
+  match foldl find_match (None, 0) m with
+  | (Some j, _) -> Some j
+  | (None, _) -> None
 
 let eval_dtree vs t = Mccomp_cvalue (Mcvalue_ivalue (Mivalue_int 0))
 
