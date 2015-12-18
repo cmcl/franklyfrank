@@ -645,7 +645,10 @@ and type_ivalue env iv =
        begin (* Check the ambient effects agrees with returner type. *)
 	 match t.styp_desc with
 	 | Styp_ret (es, v)
-	   -> v (* TODO: Compare es with env.fenv *)
+	   -> if unify_effect_sets es env.fenv then v
+	      else let msg = "Unification failure: inferable computation " ^
+		     "effect set not equal to ambient" in
+		   failwith msg
 	 | _ -> let msg = Printf.sprintf
 		  "expected returner type but type was %s"
 		  (ShowSrcType.show t) in
