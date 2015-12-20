@@ -54,6 +54,7 @@ and mid_ivalue =
 
 and mid_icomputation =
   | Micomp_app of mid_ivalue * mid_ccomputation list
+  | Micomp_let of string * mid_ccomputation * mid_ccomputation
 
 (** Show functions for the tree (see also ParseTree module) *)
 module ShowMidProg : SHOW with type t = prog

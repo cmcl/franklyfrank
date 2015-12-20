@@ -1,0 +1,68 @@
+data List x = Nil  : x
+            | Cons : x -> (List x) -> (List x).
+
+data Zero =.
+
+append : (List x) -> (List x) -> (List x).
+append Nil          ys = ys.
+append (Cons ax xs) ys = Cons ax (append xs ys).
+
+interface Send x = send : x -> Unit.
+
+interface Receive x = receive : x.
+
+interface Abort = aborting : Zero.
+
+map : {a -> b} -> (List a) -> (List b).
+map f Nil = Nil.
+map f (Cons x xs) = Cons (f x) (map f xs).
+
+abort : [Abort]x.
+abort = let x = aborting! in {}.
+
+semi : x -> y -> y.
+semi   x    y =  y.
+
+sends : (List x) -> [Send x]Unit.
+sends xs = semi (map send xs) Unit.
+
+helpCatter : List x -> [Receive (List x)]List x.
+helpCatter Nil = Nil.
+helpCatter cxs = append cxs (catter!).
+
+catter : [Receive (List x)](List x).
+catter = let xs = receive! in helpCatter xs.
+
+pipe : [Send x]Unit -> [Receive x]y   -> [Abort]y.
+pipe         [_]             y         =     y.
+pipe        Unit            [_]        =   abort!.
+pipe   [send x -> s]   [receive -> r]  =  pipe (s Unit) (r x).
+
+{- Test the matching of any thunk "[_]" in pipe pattern 1 (topmost) -}
+fibSendOneMoreTime : List (List Int).
+fibSendOneMoreTime = Cons
+                         (Cons 1 Nil)
+                     (Cons
+                         (Cons 1 (Cons 2 Nil))
+                     (Cons
+                         (Cons 3 (Cons 5 (Cons 8 Nil)))
+                     (Cons
+                         (Nil)
+                     (Cons
+                         (Nil)
+                      Nil)))).
+
+{- [[1],[1,2],[3,5,8],[],[]] -}
+
+{- Test the matching of any thunk "[_]" in pipe pattern 2 -}
+fib : (List (List Int)).
+fib = Nil.
+
+sender : [Send (List Int)]Unit.
+sender = sends (fibSendOneMoreTime!).
+
+senderOfNothin : [Send (List Int)]Unit.
+senderOfNothin = sends (fib!).
+
+main : [Abort](List Int).
+main = pipe (sender!) (catter!).

@@ -132,6 +132,9 @@ and translate_icomp st ic =
   | IComp_app (iv, cs) -> let iv' = translate_ivalue st iv in
 			  let cs' = List.map (translate_ccomp st) cs in
 			  Micomp_app (iv', cs')
+  | IComp_let (x, cc1, cc2) -> let cc1' = translate_ccomp st cc1 in
+			       let cc2' = translate_ccomp st cc2 in
+			       Micomp_let (x, cc1', cc2')
 
 and translate_ivalue st iv =
   match iv with

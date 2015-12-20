@@ -65,6 +65,7 @@ end
 
 module IComp = struct
   let app func ?(args = []) () = IComp_app (func, args)
+  let let_binding x cv ic = IComp_let (x, cv, ic)
 end
 
 module EffInterface = struct

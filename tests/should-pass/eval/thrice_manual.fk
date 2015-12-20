@@ -1,0 +1,35 @@
+data Zero =.
+
+interface Send x = send : x -> Unit.
+
+interface Receive x = receive : x.
+
+interface Abort = aborting : Zero.
+
+bind : x -> {x -> y} -> y.
+bind bx f = f bx.
+
+abort : [Abort]x.
+abort = bind (aborting!) {}.
+
+semi : x -> y -> y.
+semi   x    y =  y.
+
+pipe : [Send x, Console]Unit -> [Receive x]y -> [Abort,Console]y.
+pipe    [send x -> s]        y         = pipe (s Unit) y.
+pipe        Unit             y         =     y.
+{- Compiler generated clauses for all commands not handled by handler. -}
+pipe   [putStrLn s -> k]     y         = let x = putStrLn s in pipe (k x) y.
+{- End of compiler generated clause list. -}
+pipe        Unit            [_]        =   abort!.
+pipe   [send x -> s]   [receive -> r]  =  pipe (s Unit) (r x).
+
+main : [Abort, Console]Bool.
+main = pipe (semi (putStrLn "Once")
+       	     (semi (send 1)
+	      (semi (putStrLn "Twice")
+               (semi (send 2)
+                (semi (putStrLn "Three")
+                 (semi (send 3)
+		       (putStrLn "Four")))))))
+            (semi (receive!) (semi (receive!) true)).

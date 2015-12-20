@@ -103,6 +103,14 @@ let random_interface =
 
 (* Types of builtin functions. *)
 
+let bind_type =
+  let oes = TypExp.effect_var_set in
+  let x = TypExp.returner (TypExp.fresh_rigid_tvar "x") ~effs:oes () in
+  let y = TypExp.returner (TypExp.fresh_rigid_tvar "y") ~effs:oes () in
+  let c = TypExp.sus_comp (TypExp.comp ~args:[x] y) in
+  let f = TypExp.returner c ~effs:oes () in
+  TypExp.sus_comp (TypExp.comp ~args:[x; f] y)
+
 let gt_type =
   let oes = TypExp.effect_var_set in
   let arg = TypExp.returner (TypExp.int ()) ~effs:oes () in
@@ -143,7 +151,8 @@ let add_builtins env =
     (ENV.add "minus" minus_type
        (ENV.add "gt" gt_type
           (ENV.add "gtf" gtf_type
-	     (ENV.add "strcat" strcat_type env.tenv)))) in
+	     (ENV.add "strcat" strcat_type
+		(ENV.add "#bind#" bind_type env.tenv))))) in
   let denv = ENV.add "Unit" unit_datatype env.denv in
   let ienv =
     ENV.add "Random" random_interface
@@ -155,7 +164,8 @@ let add_builtins env =
       henv = HENV.add "plus" (HENV.add "gt"
                                 (HENV.add "gtf"
 				   (HENV.add "strcat"
-	  (HENV.add "minus" env.henv))));
+				      (HENV.add "minus"
+					 (HENV.add "#bind#" env.henv)))));
       ienv }
 
 let rec type_prog prog =
@@ -359,7 +369,7 @@ and type_ccomp env res cc =
 		     (ShowMidCComp.show cc) (ShowSrcType.show res))
 
 and destruct_comp_type t =
-  match t.styp_desc with
+  match (unbox t).styp_desc with
   | Styp_thunk thk -> destruct_comp_type thk
   | Styp_comp (args, res) -> (args, res)
   |        _     -> type_error ("incorrect handler type was:" ^
@@ -374,20 +384,15 @@ and type_empty_clause env res =
 		(ShowSrcType.show t) in
 	      type_error msg
     | _ -> type_error "expected returner type for empty clause" in
-  match res.styp_desc with
+  match (unbox res).styp_desc with
   | Styp_comp (ts, r) -> List.iter validate_arg ts; res
-  | Styp_ref pt -> begin
-                     match (unbox res).styp_desc with
-		     | Styp_ftvar _
-		       -> let r = fresh_returner () in
-			  let c = fresh_ref "c" in
-			  let t = TypExp.comp ~args:[r] c in
-			  unify res t
-		     | _ ->
-		       let msg = "expected computation type for empty clause"
-		       in type_error msg
-                   end
-  | _ -> type_error "expected computation type for empty clause"
+  | Styp_ftvar _
+    -> let r = fresh_returner () in
+       let c = fresh_ref "c" in
+       let t = TypExp.comp ~args:[r] c in
+       unify res t
+  | _ -> type_error ("expected computation type for empty clause but was " ^
+			ShowSrcType.show res)
 
 and is_uninhabited env v =
   match (unbox v).styp_desc with
@@ -659,6 +664,7 @@ and show_types ts = string_of_args ", " ~bbegin:false ShowSrcType.show ts
 
 and type_cmd env c =
   let es = env.fenv in
+  Debug.print "ambient effects are %s\n" (show_types es);
   let eis = filter_map just_eis es in
   let eis = map (fun (ei, ts) -> (ei, ts, find_interface ei env)) eis in
   let msg = Printf.sprintf "command %s not handled by ambient effects %s"
@@ -693,6 +699,11 @@ and dct t =
   |        _     -> type_error ("incorrect handler type was:" ^
 				   (ShowSrcType.show t))
 
+and is_empty_clause cc =
+  match cc with
+  | Mccomp_cvalue (Mcvalue_thunk (Mccomp_clauses [])) -> true
+  | _ -> false
+
 and type_icomp env ic =
   match ic with
   | Micomp_app (iv, cs)
@@ -710,6 +721,26 @@ and type_icomp env ic =
        in
        if does r env.fenv then r
        else type_error "ambient effects not allowed by computation"
+  | Micomp_let (x, cc1, cc2) when is_empty_clause cc2
+    -> let t = type_ivalue env (Mivalue_var "#bind#") in
+       let ([t1;t2], r) = destruct_comp_type t in
+       let _ = type_ccomp env t1 cc1 in
+       let _ =  type_ccomp env t2 cc2 in
+       r
+  | Micomp_let (x, cc1, cc2)
+    -> (* Let is syntactic sugar for bind *)
+       let t = type_ivalue env (Mivalue_var "#bind#") in
+       let ([t1;_], r) = destruct_comp_type t in
+       let t1 = type_ccomp env t1 cc1 in
+       begin
+	 match t1.styp_desc with
+	 | Styp_ret (_, v)
+	   -> let env' = { env with tenv = ENV.add x v env.tenv } in
+	      let r = type_ccomp env' r cc2 in
+	      r
+	 | _ -> failwith ("expected returner type but was " ^
+			     (ShowSrcType.show t1))
+       end
 
 and does r es =
   let fp_soln es es' =

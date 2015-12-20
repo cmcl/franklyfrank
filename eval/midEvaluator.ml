@@ -360,6 +360,10 @@ module EvalComp : EVALCOMP = struct
   and eval_icomp env ic =
     match ic with
     | Micomp_app (iv, cs) -> eval_app env iv cs
+    | Micomp_let (x, cc1, cc2)
+      -> eval_ccomp env cc1 >>=
+         fun v -> let env' = ENV.add x (return v) env in
+		  eval_ccomp env' cc2
 
   and eval_app env u cs =
     let mhdr cs = eval_ivalue env u >>=

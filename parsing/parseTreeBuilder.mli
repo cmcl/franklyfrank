@@ -53,6 +53,8 @@ module IComp :
   sig
     val app : inferable_value -> ?args:checkable_computation list -> unit ->
       inferable_computation
+    val let_binding : string -> checkable_computation ->
+      checkable_computation -> inferable_computation
   end
 
 (** Datatype declarations *)

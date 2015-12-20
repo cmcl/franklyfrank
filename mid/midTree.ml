@@ -45,6 +45,7 @@ and mid_ivalue =
 
 and mid_icomputation =
   | Micomp_app of mid_ivalue * mid_ccomputation list
+  | Micomp_let of string * mid_ccomputation * mid_ccomputation
 
 module rec ShowMidProg : SHOW
   with type t = prog = ShowList(ShowMidTLD)
@@ -112,6 +113,9 @@ and ShowMidIComp : SHOW with type t = mid_icomputation = struct
     | Micomp_app (iv, xs)
       -> "({-APP-}" ^ (ShowMidIValue.show iv) ^ "!" ^
            (string_of_args " " ShowMidCComp.show xs) ^ ")"
+    | Micomp_let (x, cc1, cc2)
+      -> "(let " ^ x ^ " = " ^ (ShowMidCComp.show cc1) ^ " in " ^
+      (ShowMidCComp.show cc2) ^ ")"
 end
 
 and ShowClauses : SHOW

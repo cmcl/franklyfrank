@@ -33,6 +33,8 @@ rule token = parse
   | "interface" { INTERFACE }
   | "true"      { TRUE }
   | "false"     { FALSE }
+  | "let"       { LET }
+  | "in"        { IN }
   | '{'         { LBRACE }
   | "{-"        { comment_depth := !comment_depth + 1; comment lexbuf }
   | '['       { LBRACKET }

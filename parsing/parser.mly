@@ -15,6 +15,8 @@
 %token EOF
 %token EQUAL
 %token FALSE
+%token LET
+%token IN
 %token <string> ID
 %token <string> STRLIT
 %token INTERFACE
@@ -118,11 +120,21 @@ paren_inferable_value:
   ;
 
 inferable_computation:
-  | inferable_value BANG list(paren_checkable_computation)
+  | application                   { $1 }
+  | let_binding                   { $1 }
+;
+
+application:
+  | paren_inferable_value BANG list(paren_checkable_computation)
       { IComp.app $1 ~args:$3 () }
   | paren_inferable_value nonempty_list(paren_checkable_computation)
       { IComp.app $1 ~args:$2 () }
   ;
+
+let_binding:
+  | LET ID EQUAL pat_checkable_computation IN pat_checkable_computation
+      { IComp.let_binding $2 $4 $6 }
+;
 
 value_constructor:
   | UID paren_checkable_value*           { CValue.ctr $1 $2 }

@@ -1,0 +1,20 @@
+data Zero =.
+
+interface Abort = aborting : Zero.
+
+simple : Int.
+simple = let x = {0} in x!.
+
+abort : [Abort]x.
+abort = let x = aborting! in {}.
+
+{-
+abort2 : [Abort]x.
+abort2 = let x = {aborting!} in x!.
+-}
+
+baz : [Abort]Int.
+baz = let x = {abort!} in x!.
+
+main : Int.
+main = simple!.

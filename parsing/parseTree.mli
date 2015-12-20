@@ -38,6 +38,7 @@ and inferable_value =
 
 and inferable_computation =
   | IComp_app of inferable_value * checkable_computation list
+  | IComp_let of string * checkable_computation * checkable_computation
 
 and pattern =
   {
