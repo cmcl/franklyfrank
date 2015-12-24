@@ -1,3 +1,4 @@
+(*pp deriving *)
 (***********************************************************************
  * Untyped Abstract Syntax Tree for the Frank source language.
  * 
@@ -136,6 +137,7 @@ and src_type_desc =
   | Styp_str
 
 and src_tvar = string * int
+  deriving (Show)
 
 (** Show functions *)
 val string_of_args : string -> ?bbegin:bool -> ?endd:bool ->

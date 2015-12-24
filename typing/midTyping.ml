@@ -44,6 +44,7 @@ type type_sig =
 | TSStr of string
 | TSCmd of string * int (* constructor name and arity. *)
 | TSCtr of string * int (* command name and arity *)
+    deriving (Show)
 
 module type TSS = sig
   type t
@@ -58,19 +59,44 @@ module type TSS = sig
   (** Add an type signature to the set if it is not already present. *)
   val singleton : type_sig -> t
   (** Return a singleton set containing the specified element. *)
+  val elements : t -> type_sig list
+  (** Return the list of elements of the given set. *)
 end
 
 module TypeSigSet = struct
   module M = Set.Make(struct
-    type t = type_sig
-    let compare = Pervasives.compare
+    type t = int * type_sig
+    let compare (_, tsg1) (_, tsg2) = Pervasives.compare tsg1 tsg2
   end)
-  type t = M.t
-  let empty = M.empty
-  let mem = M.mem
-  let singleton = M.singleton
-  let union = M.union
-  let add = M.add
+
+  type t = 
+    {
+      set : M.t;
+      size : int
+    }
+
+  let empty = { set = M.empty ; size = 0 }
+
+  let mem x s =
+    M.mem (0, x) s.set (* Insertion order not relevant for membership. *)
+
+  let singleton x = { set = M.singleton (0, x); size = 0 }
+
+  let add x s =
+    if mem x s then s
+    else let set = M.add (s.size, x) s.set in
+	 { set ; size = s.size + 1 }
+
+  let elements s =
+    let es = M.elements s.set in
+    let f (i, _) (j, _) = Pervasives.compare i j in
+    let es' = List.stable_sort f es in
+    let strip_ins_order (_, tsg) = tsg in
+    map strip_ins_order es'
+
+  let union s1 s2 =
+    foldl (fun s x -> add x s) empty ((elements s1) ++ (elements s2))
+
 end
 (** Set containing type signatures. *)
 

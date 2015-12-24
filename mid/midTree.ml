@@ -46,6 +46,7 @@ and mid_ivalue =
 and mid_icomputation =
   | Micomp_app of mid_ivalue * mid_ccomputation list
   | Micomp_let of string * mid_ccomputation * mid_ccomputation
+      deriving (Show)
 
 module rec ShowMidProg : SHOW
   with type t = prog = ShowList(ShowMidTLD)

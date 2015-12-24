@@ -1,5 +1,6 @@
 (* A small test file for the pattern matching compilation module. *)
 
+open ListUtils
 open MidTree
 open ParseTree
 open ParseTreeBuilder
@@ -59,6 +60,10 @@ let pa =
    ([ctr_pat "Cons" [any_vpat (); var_vpat "xs"];
      ctr_pat "Cons" [any_vpat (); var_vpat "ys"]], make_iexp 3)]
 
+let div =
+  [([var_pat "x"; int_pat 0], make_iexp 1);
+   ([var_pat "x"; var_pat "y"], make_iexp 2)]
+
 let run_test p v =
   let msg = ShowPattern.show p ^ " <= " ^ ShowMidCValue.show v in
   print_endline (msg ^ " = " ^ (string_of_bool (is_inst p v)))
@@ -80,8 +85,18 @@ let main =
   prmatrix pa;
   print_endline "----S((::), P->A)-----Specialising to Cons----";
   prmatrix (specialise (MidTyping.TSCtr ("Cons", 2)) pa);
+  print_endline "----S([], P->A)-----Specialising to Nil----";
+  prmatrix (specialise (MidTyping.TSCtr ("Nil", 0)) pa);
+  let tree = compile pa in
+  print_endline (Show.show<dtree> tree);
   let pm = get_pmatrix pa in
   print_endline "---just the patterns----";
   prpatmatrix pm;
-  List.iter (run_match_test ("P", pm)) (gen_tests ())
-
+  List.iter (run_match_test ("P", pm)) (gen_tests ());
+  print_endline "---div---";
+  prmatrix div;
+  print_endline "---S(0, swap div 0 1)---Specalising to error case---";
+  let (pm,rs) = to_columns div in
+  let pm' = swap pm 0 1 in
+  let div' = List.combine (transpose pm') rs in
+  prmatrix (specialise (MidTyping.TSInt 0) div')

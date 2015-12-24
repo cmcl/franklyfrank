@@ -24,7 +24,8 @@ type dtree =
 
 and case =
   CseDefault of dtree
-| CseCtr of string * dtree
+| CseSig of MidTyping.type_sig * dtree
+    deriving (Show)
 (** Cases which occur at multi-way test nodes within a decision tree. *)
 
 (* Pattern and value operations. *)

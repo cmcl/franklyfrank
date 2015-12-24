@@ -1,3 +1,4 @@
+(*pp deriving *)
 (***********************************************************************
  * Translate the untyped abstract syntax tree of the source language
  * into a untyped mid-level tree. The mid-level tree does not
@@ -55,6 +56,7 @@ and mid_ivalue =
 and mid_icomputation =
   | Micomp_app of mid_ivalue * mid_ccomputation list
   | Micomp_let of string * mid_ccomputation * mid_ccomputation
+      deriving (Show)
 
 (** Show functions for the tree (see also ParseTree module) *)
 module ShowMidProg : SHOW with type t = prog

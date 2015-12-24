@@ -28,7 +28,8 @@ type dtree =
 
 and case =
   CseDefault of dtree
-| CseCtr of string * dtree
+| CseSig of MidTyping.type_sig * dtree
+    deriving (Show)
 (** Cases which occur at multi-way test nodes within a decision tree. *)
 
 let foldmapb f xs = fold_left (&&) true (map f xs)
@@ -157,6 +158,25 @@ let default m =
     | [] -> [] in
   flatten (map clausegen m)
 
+let rec all_wild ps =
+  match ps with
+  | p :: ps -> begin match p.spat_desc with
+               | Spat_any
+	       | Spat_thunk _ -> all_wild ps
+	       | _ -> false
+               end
+  | [] -> true (* No columns case *)
+
+(* Pick the first column which has a pattern that is not a wildcard.
+   Return both the column number, the column and the remaining columns. *)
+let pick_column css =
+  let rec pick n css =
+    match css with
+    | [] -> failwith "invariant invalidated"
+    | cs :: css -> if not (all_wild cs) then (n, cs)
+                   else pick (n+1) css in
+  pick 0 css
+
 (** Compute head type signatures in patterns [ps]. *)
 let compute_heads ps =
   let compute_hd p =
@@ -191,4 +211,24 @@ let matches vs m =
 
 let eval_dtree vs t = Mccomp_cvalue (Mcvalue_ivalue (Mivalue_int 0))
 
-let compile m = Fail
+let rec compile m =
+  let make_case tsg =
+    let tree = compile (specialise tsg m) in
+    CseSig (tsg, tree) in
+  match m with
+  | [] -> Fail (* No row case *)
+  | (ps, a) :: m' when all_wild ps -> Leaf a (* Default case is first row *)
+  | _
+    -> let (css, _) = to_columns m in
+       let (i, cs) = pick_column css in
+       if i != 0 then
+	 let (pm,rs) = split m in
+	 let pm' = swap (transpose pm) 0 i in
+	 let m' = combine (transpose pm') rs in
+	 Swap (i, compile m')
+       else
+	 let hs = compute_heads cs in
+         (* Compute decision tree for each signature appearing in column. *)
+	 let cases = map make_case (TypeSigSet.elements hs) in
+	 let d = CseDefault (compile (default m)) in
+	 Switch (cases ++ [d])

@@ -1,6 +1,8 @@
+
 let (++) = List.append
 let hd = List.hd
 let tl = List.tl
+let find = List.find
 
 let rec repeat x n = if n <= 0 then [] else x :: (repeat x (n-1))
 
@@ -26,6 +28,18 @@ let rec map_accum f a xs =
   | x :: xs' -> let (a', x') = f a x in
 		let (a'', xs'') = map_accum f a' xs' in
 		(a'', x' :: xs'')
+
+let swap zs i j =
+  let rec swap' x y zs =
+    match zs with
+    | [] -> []
+    | (n, z) :: zs -> (if i = n then y
+                       else if j = n then x
+		       else z) :: (swap' x y zs) in
+  let (_, zs) = map_accum (fun i z -> (i+1, (i, z))) 0 zs in
+  let (_, x) = find (fun (n, _) -> n = i) zs in
+  let (_, y) = find (fun (n, _) -> n = j) zs in
+  swap' x y zs
 
 let rec transpose xss =
   match xss with

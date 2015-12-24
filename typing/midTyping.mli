@@ -1,3 +1,4 @@
+(*pp deriving *)
 (***********************************************************************
  * Definition of the typing of the mid-level tree.
  *
@@ -20,7 +21,7 @@ type type_sig =
 | TSStr of string
 | TSCmd of string * int (* constructor name and arity. *)
 | TSCtr of string * int (* command name and arity *)
-
+    deriving (Show)
 (** The signature of a type; all its possible head constructors. *)
 
 module type TSS = sig
@@ -31,11 +32,15 @@ module type TSS = sig
   (** Return true if the set contains the specified type signature false
       otherwise. *)
   val union : t -> t -> t
-  (** Return the union of the provided sets. *)
+  (** [union s1 s2] returns the union of [s1] and [s2] with the elements in
+      [s1] preceding the elements of [s2] in the "insertion" order. *)
   val add : type_sig -> t -> t
   (** Add an type signature to the set if it is not already present. *)
   val singleton : type_sig -> t
   (** Return a singleton set containing the specified element. *)
+  val elements : t -> type_sig list
+  (** Return the list of elements of the given set. The ordering of the
+      elements in the list respects their insertion order. *)
 end
 
 module TypeSigSet : TSS

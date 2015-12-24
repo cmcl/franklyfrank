@@ -130,6 +130,7 @@ and src_type_desc =
   | Styp_str
 
 and src_tvar = string * int
+  deriving (Show)
 
 let string_of_args sep ?(bbegin = true) ?(endd = false) f xs = match xs with
   | [] -> ""
