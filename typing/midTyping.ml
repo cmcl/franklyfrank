@@ -1058,3 +1058,14 @@ let rec compute_signature env t =
   | Styp_float -> TypeSigSet.singleton TSAllValues
   | Styp_str -> TypeSigSet.singleton TSAllValues
   | _ -> TypeSigSet.empty
+
+let env_lookup x env =
+  if ENV.mem x env.denv then
+    let (ps, cs) = ENV.find x env.denv in
+    TypExp.datatype x ps
+  else if ENV.mem x env.ienv then
+    let (ps, cs) = ENV.find x env.ienv in
+    TypExp.effin x ~params:ps ()
+  else if HENV.mem x env.henv then
+    ENV.find x env.tenv
+  else failwith ("No datatype, effect interface or handler '" ^ x ^ "'")

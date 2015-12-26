@@ -8,7 +8,7 @@ open Utility
 
 type 'a vector = 'a list
 type 'a matrix = 'a vector vector
-type action = MidTree.mid_ccomputation
+type action = MidTree.mid_ccomputation deriving (Show)
 type pattern = MidTree.pattern
 type value = MidTree.mid_cvalue
 (** Helpful synonyms. *)

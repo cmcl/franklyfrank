@@ -50,6 +50,10 @@ val compute_signature : env -> ParseTree.src_type -> TypeSigSet.t
 (** [compute_signature env t] compute the signature of the given type with
     respect to the given environment. *)
 
+val env_lookup : string -> env -> ParseTree.src_type
+(** [env_lookup x env] lookup the string [x] in the typing environment [env]
+    returning the corresponding type. *)
+
 val type_prog : MidTree.prog -> ParseTree.src_type * env
 (** Typecheck a mid-level tree and return the type and the constructed
     environment on success. On failure, a [TypeError] exception is
