@@ -10,16 +10,29 @@ if we need a default case or not. there are two cases to consider.
 
    2) E contains the effect variable.
 
-Actually 2) is a special case of 1) because £ </= p for all p =/= [t] for some
-string t.
+Actually 2) is a special case of 1) if we insist that the distinguished effect
+variable £ </= p for all p =/= [t] for some string t.
 
 Suppose the signature for the type is some set T and the signature for the
 column of patterns is some set P. Then a default case is needed just if the
 set difference T/P is non-empty. The set difference operation is special
 because it will be defined over the signature of types and needs to take
 account of ordering of those signatures. Specifically, we have a partial order
-on value signatures s.t. v <= 'AV' for all values where 'AV' is the AllValues
-element of the type signature data type.
+on value signatures s.t. v <= AllValues for all values where AllValues is the
+an element of the type signature data type. Moreover, the presence of the
+effect variable requires considering the ambient effects as possible values to
+be matched, necessitating a type signature constructor 'AmbientCmds'. It has
+the property that for any command c in the type signature set
+
+                              AmbientCmds <= Cmd c.
+
+and that for any command c' not in the type signature set:
+
+                              Cmd c' <= AmbientCmds
+
+In other words, AmbientCmds is the greatest lower bound for the subset
+consisting of commands in a type signature set (w.r.t the set of ambient
+effects, whatever they may be).
 
 If the set difference is non-empty then either we have missed a case or we
 have an open effect set. In the former case we have a type error, in the
@@ -27,7 +40,7 @@ latter we add a default case for forwarding unhandled commands.
 
 Consider the following example where computing the signature for [OneCmd,
 TwoCmd]ThreeVs will yield the set:
-	       {Cmd oc1, Cmd tc1, Cmd tc2, Ctr tv1, Ctr tv2, Ctr tv3}
+       {Cmd oc1, Cmd tc1, Cmd tc2, AmbientCmds, Ctr tv1, Ctr tv2, Ctr tv3}
 
 simple : [OneCmd, TwoCmd]ThreeVs -> Int
 simple       [oc1 -> k]          = 1
@@ -38,6 +51,68 @@ In the above example we have a type error since 'tc1' is not handled. This
 example also shows the partial ordering of value signatures; the final pattern
 yields {AllValues} with {Ctr tv1, Ctr tv2, Ctr tv3}/{AllValues} = /o (the
 empty set).
+
+Note, however, in the following example:
+
+simple : [OneCmd, TwoCmd]ThreeVs -> Int
+simple       [oc1 -> k]          = 1
+simple       [tc2 -> k]          = 2
+simple       [tc1 -> k]          = 3
+simple            x              = 0
+
+we *still* have T/P non-empty because the effect set is implicitly open! But
+considering the set difference operation in first example we have:
+
+   T   {Cmd oc1, Cmd tc1, Cmd tc2, AmbientCmds, Ctr tv1, Ctr tv2, Ctr tv3}
+   / = /
+   P   {Cmd oc1,          Cmd tc2,              AllValues}
+
+     = {Cmd tc1, AmbientCmds}
+
+and in the second example:
+
+
+   T   {Cmd oc1, Cmd tc1, Cmd tc2, AmbientCmds, Ctr tv1, Ctr tv2, Ctr tv3}
+   / = /
+   P   {Cmd oc1, Cmd tc1, Cmd tc2,              AllValues}
+
+     = {AmbientCmds}
+
+the condition we require for this set to be 'okay' is that there be no
+unhandled commands. if we were to instead do:
+
+simple : [OneCmd, TwoCmd]ThreeVs -> Int
+simple        x                  = 0
+simple       [t]                 = 1
+
+Then 
+
+   T   {Cmd oc1, Cmd tc1, Cmd tc2, AmbientCmds, Ctr tv1, Ctr tv2, Ctr tv3}
+   / = /
+   P   {AllValues}
+
+     = {Cmd oc1, Cmd tc1, Cmd tc2, AmbientCmds}
+
+thus we need a default case. we compute the default matrix which will
+correspond to the matrix:
+
+simple [t] = 1
+
+as required.
+
+but how did we know the difference between the last example and our initial
+example where we missed out the case for tc2? The answer is that the default
+matrix in the first example had no rows! Suggesting that if T/P is non-empty
+then either:
+
+   1) It is the singleton {AmbientCmds}, or
+
+   2) It contains a subset {Cmd c1, Cmd c2, ..., Cmd cN}
+
+For 1), construct new rows for forwarding commands.
+
+For 2), compute the default matrix. If it has no rows, report a type error
+indicating the unhandled commands.
 
 A more complex example involving desugaring of thunk patterns:
 
