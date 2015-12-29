@@ -1,0 +1,47 @@
+suppose we have some type [E]V and we are compiling this column.
+
+first we compute the signature of the column. which will contain a unique set
+of values drawn from the type signature data type. then we will have to decide
+if we need a default case or not. there are two cases to consider.
+
+   1) the column of patterns is not exhaustive i.e. there exists some S vs in
+   E or some k vs in V s.t. either S vs </= p_i for all rows i or k vs </= p_i
+   for all rows i
+
+   2) E contains the effect variable.
+
+Actually 2) is a special case of 1) because £ </= p for all p =/= [t] for some
+string t.
+
+Suppose the signature for the type is some set T and the signature for the
+column of patterns is some set P. Then a default case is needed just if the
+set difference T/P is non-empty. The set difference operation is special
+because it will be defined over the signature of types and needs to take
+account of ordering of those signatures. Specifically, we have a partial order
+on value signatures s.t. v <= 'AV' for all values where 'AV' is the AllValues
+element of the type signature data type.
+
+If the set difference is non-empty then either we have missed a case or we
+have an open effect set. In the former case we have a type error, in the
+latter we add a default case for forwarding unhandled commands.
+
+Consider the following example where computing the signature for [OneCmd,
+TwoCmd]ThreeVs will yield the set:
+	       {Cmd oc1, Cmd tc1, Cmd tc2, Ctr tv1, Ctr tv2, Ctr tv3}
+
+simple : [OneCmd, TwoCmd]ThreeVs -> Int
+simple       [oc1 -> k]          = 1
+simple       [tc2 -> k]          = 2
+simple            x              = 0
+
+In the above example we have a type error since 'tc1' is not handled. This
+example also shows the partial ordering of value signatures; the final pattern
+yields {AllValues} with {Ctr tv1, Ctr tv2, Ctr tv3}/{AllValues} = /o (the
+empty set).
+
+A more complex example involving desugaring of thunk patterns:
+
+pipe : [Send X]Unit -> [Recv X]Y  -> [Abort]Y
+pipe       [ __ ]           y      =   y
+pipe         ()        [recv -> k] =  abort!
+pipe   [send x -> s]   [recv -> r] = pipe (s ()) (r x)
