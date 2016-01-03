@@ -82,6 +82,10 @@ val default : cmatrix -> cmatrix
     the rows of [m] whose first pattern admits as instances all type
     signatures that are not present in the first column of [m]. *)
 
+val compute_heads : pattern vector -> MidTyping.TypeSigSet.t
+(** [compute_heads ps] computes the head type signatures for the column of
+    patterns [ps]. *)
+
 (* Matching, evaluation and compilation operations. *)
 
 val matches : value vector -> pmatrix -> int option
@@ -94,6 +98,8 @@ val eval_dtree : value list -> dtree -> action
     returning an action. The stack is assumed to initially hold the subject
     value. *)
 
-val compile : cmatrix -> dtree
-(** [compile m] returns the decision tree corresponding to the clause
-    matrix [m]. *)
+val compile : MidTyping.env -> ParseTree.src_type vector -> cmatrix -> dtree
+(** [compile env ts m] returns the decision tree corresponding to the clause
+    matrix [m] with respect to the typing environment [env] and the vector of
+    type signatures [ts] which correspond to the types of the columns of
+    patterns in [m]. *)

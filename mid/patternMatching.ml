@@ -108,6 +108,7 @@ let specialise tsg m =
     | Spat_thunk _ -> (true, repeat (Pattern.vpat (Pattern.any_value ())) n)
     | _ -> (false, []) in
   match tsg with
+  | TSAmbientCmds -> assert false (* We never specialise for ambient cmds. *)
   | TSAllValues -> let val_spec p = defaults_for_values p 0 in
 		   specialise_using_fun val_spec m
   | TSBool b -> let bool_spec p =
@@ -211,9 +212,10 @@ let matches vs m =
 
 let eval_dtree vs t = Mccomp_cvalue (Mcvalue_ivalue (Mivalue_int 0))
 
-let rec compile m =
-  let make_case tsg =
-    let tree = compile (specialise tsg m) in
+let rec compile env ts m =
+  let make_case t ts' tsg =
+    let ts = compute_arg_types env t tsg in
+    let tree = compile env (ts++ts') (specialise tsg m) in
     CseSig (tsg, tree) in
   match m with
   | [] -> Fail (* No row case *)
@@ -224,11 +226,34 @@ let rec compile m =
        if i != 0 then
 	 let (pm,rs) = split m in
 	 let pm' = swap (transpose pm) 0 i in
+	 let ts' = swap ts 0 i in
 	 let m' = combine (transpose pm') rs in
-	 Swap (i, compile m')
+	 Swap (i, compile env ts' m')
        else
 	 let hs = compute_heads cs in
+	 print_endline "---hs---";
+	 print_endline (Show.show<type_sig list> (TypeSigSet.elements hs));
+	 let (t,ts) = hd ts, tl ts in
+	 let tsg = compute_signature env t in
+	 print_endline "---tsg---";
+	 print_endline (Show.show<type_sig list> (TypeSigSet.elements tsg));
          (* Compute decision tree for each signature appearing in column. *)
-	 let cases = map make_case (TypeSigSet.elements hs) in
-	 let d = CseDefault (compile (default m)) in
-	 Switch (cases ++ [d])
+	 let cases = map (make_case t ts) (TypeSigSet.elements hs) in
+	 (* Check whether or not we need a default case. *)
+	 let diff = TypeSigSet.diff tsg hs in
+	 print_endline "---diff---";
+	 print_endline (Show.show<type_sig list> (TypeSigSet.elements diff));
+	 if TypeSigSet.is_ambient diff then
+	   (* compute forwarding commands *)
+	   Switch cases
+	 else if TypeSigSet.all_cmds diff then
+	   let dm = default m in
+	   (* Expect at least one row for the default case. *)
+	   if length dm = 0 then
+	     let es = TypeSigSet.elements diff in
+	     let es = filter (function TSCmd _ -> true | _ -> false) es in
+	     let TSCmd (cmd, _) = hd es in
+	     print_endline (Show.show<type_sig list> es);
+	     type_error ("Unhandled pattern(s) e.g. [" ^ cmd ^ " _ -> _]")
+	   else Switch (cases ++ [CseDefault (compile env ts dm)])
+	 else type_error ("Unhandled patterns.")

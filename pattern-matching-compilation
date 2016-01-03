@@ -71,7 +71,6 @@ considering the set difference operation in first example we have:
 
 and in the second example:
 
-
    T   {Cmd oc1, Cmd tc1, Cmd tc2, AmbientCmds, Ctr tv1, Ctr tv2, Ctr tv3}
    / = /
    P   {Cmd oc1, Cmd tc1, Cmd tc2,              AllValues}
@@ -113,6 +112,24 @@ For 1), construct new rows for forwarding commands.
 
 For 2), compute the default matrix. If it has no rows, report a type error
 indicating the unhandled commands.
+
+What can be said about the following example?
+
+simple : [OneCmd, TwoCmd]ThreeVs -> Int
+simple        x                  = 0
+simple       [_]                 = 1
+
+the presence of the underscore gives the pattern matching nontrivial
+semantics. Indeed, the above desugars to:
+
+simple : [OneCmd, TwoCmd]ThreeVs -> Int
+simple        x                  = 0
+simple    [oc1 -> k]             = 1
+simple    [tc1 -> k]             = 1
+simple    [tc2 -> k]             = 1
+simple    [?c  -> k]             = let x = c! in simple (k x)
+
+How does the pattern matching compiler represent the final pattern?
 
 A more complex example involving desugaring of thunk patterns:
 

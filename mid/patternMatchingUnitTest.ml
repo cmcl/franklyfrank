@@ -87,8 +87,6 @@ let main =
   prmatrix (specialise (MidTyping.TSCtr ("Cons", 2)) pa);
   print_endline "----S([], P->A)-----Specialising to Nil----";
   prmatrix (specialise (MidTyping.TSCtr ("Nil", 0)) pa);
-  let tree = compile pa in
-  print_endline (Show.show<dtree> tree);
   let pm = get_pmatrix pa in
   print_endline "---just the patterns----";
   prpatmatrix pm;

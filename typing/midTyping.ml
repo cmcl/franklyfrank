@@ -6,6 +6,8 @@ open Utility
 
 exception TypeError of string
 
+type src_type = ParseTree.src_type
+
 module ENV = Map.Make(String)
 module VENV = Map.Make(struct type t = int
 			      let compare = Pervasives.compare
@@ -36,7 +38,9 @@ type env =
   }
 
 type type_sig =
-  TSAllValues
+  TSAmbientCmds (* Greatest lower bound for TSCmd signatures w.r.t ambient
+		   effects. *)
+| TSAllValues
 (* The top element of the lattice for value type signatures. *)
 | TSBool of bool
 | TSFloat of float
@@ -61,6 +65,15 @@ module type TSS = sig
   (** Return a singleton set containing the specified element. *)
   val elements : t -> type_sig list
   (** Return the list of elements of the given set. *)
+  val diff : t -> t -> t
+  (** [diff t u] returns the set difference t/u w.r.t to the partial order
+      defined by the type_sig datatype. *)
+  val is_ambient : t -> bool
+  (** [is_ambient t] is [true] iff [t] is a singleton which contains the
+      [TSAmbientCmds] type signature and false otherwise. *)
+  val all_cmds : t -> bool
+  (** [all_cmds t] is [true] iff [t] contains only signatures of the form
+      TSCmd or TSAmbientCmds and [false] otherwise. *)
 end
 
 module TypeSigSet = struct
@@ -87,6 +100,11 @@ module TypeSigSet = struct
     else let set = M.add (s.size, x) s.set in
 	 { set ; size = s.size + 1 }
 
+  let remove x s =
+    if not (mem x s) then s
+    else let set = M.remove (0, x) s.set in (* insertion order irrelevant *)
+	 { set ; size = s.size - 1 }
+
   let elements s =
     let es = M.elements s.set in
     let f (i, _) (j, _) = Pervasives.compare i j in
@@ -97,6 +115,28 @@ module TypeSigSet = struct
   let union s1 s2 =
     foldl (fun s x -> add x s) empty ((elements s1) ++ (elements s2))
 
+  let remove_all_values s =
+    let is_value tsg =
+      match tsg with
+      | TSBool _ | TSFloat _ | TSInt _ | TSStr _ | TSCtr _ -> true
+      | _ -> false in
+    let s' = List.filter (not @ is_value) (elements s) in
+    foldl (fun s x -> add x s) empty s'
+
+  let diff s1 s2 =
+    let s1' = if mem TSAllValues s2 then remove_all_values s1 else s1 in
+    let s1' = foldl (fun s x -> remove x s) s1' (elements s2) in
+    s1'
+
+  let is_ambient s =
+    let es = M.elements s.set in
+    length es = 1 && snd (List.hd es) = TSAmbientCmds
+
+  let all_cmds s =
+    let all_cmds = function  (_, TSCmd _) -> true
+                           | (_, TSAmbientCmds) -> true
+			   | _ -> false in
+    M.for_all all_cmds s.set
 end
 (** Set containing type signatures. *)
 
@@ -1035,7 +1075,8 @@ let rec compute_signature env t =
        foldl (fun s c -> TypeSigSet.add c s) TypeSigSet.empty ctrs
   | Styp_thunk _ -> TypeSigSet.singleton TSAllValues
   | Styp_tvar _ -> TypeSigSet.empty
-  | Styp_rtvar ("£", _) -> TypeSigSet.empty
+  | Styp_rtvar ("£", _) -> TypeSigSet.singleton TSAmbientCmds
+  | Styp_rtvar ("@", _) -> TypeSigSet.empty
   | Styp_rtvar _
     -> (* Captures all possible values. *)
        TypeSigSet.singleton TSAllValues
@@ -1048,7 +1089,7 @@ let rec compute_signature env t =
        TypeSigSet.union s (compute_signature env v)
   | Styp_effin (ei, ts)
     -> let (_, cs) = find_interface ei env in
-       let make_tsg cmd = TSCmd (cmd.scmd_name, length cmd.scmd_args) in
+       let make_tsg cmd = TSCmd (cmd.scmd_name, length cmd.scmd_args + 1) in
        let cmds = map make_tsg cs in
        foldl (fun s c -> TypeSigSet.add c s) TypeSigSet.empty cmds
   | Styp_bool
@@ -1058,6 +1099,8 @@ let rec compute_signature env t =
   | Styp_float -> TypeSigSet.singleton TSAllValues
   | Styp_str -> TypeSigSet.singleton TSAllValues
   | _ -> TypeSigSet.empty
+
+let rec compute_arg_types env t tsg = []
 
 let env_lookup x env =
   if ENV.mem x env.denv then
