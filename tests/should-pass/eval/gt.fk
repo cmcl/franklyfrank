@@ -10,4 +10,3 @@ runState   x          y       =  y
 
 main : Bool
 main = runState 3 (gt (get!) 2)
-

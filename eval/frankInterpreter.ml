@@ -70,7 +70,8 @@ let preprocess_lines inx =
     else (Buffer.add_char buf c'; process_char_until c buf) in
   let rec process_lines buf =
     let nl = process_char_until '\n' buf in
-    let c = input_char inx in
+    let c = try input_char inx with
+      | End_of_file -> '\n' in
     (if c != ' ' && c != '\t' && last_cond buf then
 	Buffer.add_char buf '.');
     Buffer.add_char buf nl; Buffer.add_char buf c;

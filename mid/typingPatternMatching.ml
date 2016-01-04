@@ -47,6 +47,43 @@ let rec parse_file lexbuf =
   | [] -> ([], HandlerMap.empty, CtrSet.empty, CmdSet.empty)
   | prog -> translate_with_error prog
 
+let preprocess_lines st =
+  let last buf = Buffer.length buf - 1 in
+  let nth buf n = Buffer.nth buf n in
+  (* Make it optional to include the dot at the end of a sentence and
+     also guard against special cases e.g. line ends in a comment or we
+     encountered a blank line. *)
+  let last_cond buf =
+    nth buf (last buf) != '.' &&
+    (nth buf ((last buf) - 1) != '-' && nth buf (last buf) != '}') &&
+    nth buf (last buf) != '\n' in
+  let rec process_char_until c buf =
+    let c' = Stream.next st in
+    if c' = c then c
+    else if c' = '{' then (* Multi-line comment encountered. *)
+      let d = Stream.next st in
+      Buffer.add_char buf c'; Buffer.add_char buf d;
+      (* Eat entire comment. *)
+      (if d = '-' then Buffer.add_char buf (process_char_until '}' buf));
+      process_char_until c buf
+    else if c' = '"' then (* String encountered. *)
+      (Buffer.add_char buf c';
+       (* Eat entire string. *)
+       Buffer.add_char buf (process_char_until '"' buf);
+       process_char_until c buf)
+    else (Buffer.add_char buf c'; process_char_until c buf) in
+  let rec process_lines buf =
+    let nl = process_char_until '\n' buf in
+    let c = try Stream.next st with
+      | Stream.Failure -> '\n' in
+    (if c != ' ' && c != '\t' && last_cond buf then
+	Buffer.add_char buf '.');
+    Buffer.add_char buf nl; Buffer.add_char buf c;
+    process_lines buf in
+  let buf = Buffer.create 10 in
+  try process_lines buf with
+  | Stream.Failure -> Buffer.contents buf
+
 (* Value pattern helper constructors *)
 let vpat = Pattern.vpat
 let any_vpat = Pattern.any_value
@@ -133,7 +170,9 @@ let gen_tests () =
   [("vs1", vs1); ("vs2", vs2); ("vs3", vs3)]
 
 let get_typing_env (name, prog) =
-  let lexbuf = Lexing.from_string prog in
+  let st = Stream.of_string prog in
+  let buf = preprocess_lines st in
+  let lexbuf = Lexing.from_string buf in
   let () = lexbuf.lex_curr_p <- {
     lexbuf.lex_curr_p with pos_fname = name
   } in
@@ -143,21 +182,21 @@ let get_typing_env (name, prog) =
 
 let test_list =
   String.concat ""
-  ["data List x = Nil : List x | Cons : x -> List x -> List x.\n";
-   "main : Int.\n";
-   "main = 0.\n"]
+  ["data List x = Nil : List x | Cons : x -> List x -> List x\n";
+   "main : Int\n";
+   "main = 0\n"]
   
 let simple_test =
   String.concat ""
-    ["data ThreeVs = One : ThreeVs | Two : ThreeVs | Three : ThreeVs.\n";
-     "interface OneCmd = oc1 : Unit.\n";
-     "interface TwoCmd = tc1 : Unit | tc2 : Unit.\n";
-     "simple : [OneCmd, TwoCmd]ThreeVs -> Int.\n";
-     "simple       [oc1 -> k]          = 1.\n";
-     "simple       [tc2 -> k]          = 2.\n";
-     "simple            x              = 0.\n";
-     "main : Int.\n";
-     "main = 0.\n"]
+    ["data ThreeVs = One : ThreeVs | Two : ThreeVs | Three : ThreeVs\n";
+     "interface OneCmd = oc1 : Unit\n";
+     "interface TwoCmd = tc1 : Unit | tc2 : Unit\n";
+     "simple : [OneCmd, TwoCmd]ThreeVs -> Int\n";
+     "simple       [oc1 -> k]          = 1\n";
+     "simple       [tc2 -> k]          = 2\n";
+     "simple            x              = 0\n";
+     "main : Int\n";
+     "main = 0\n"]
 
 let simple_ts =
   let ocmd = effin "OneCmd" [] in
@@ -180,14 +219,14 @@ let get_simple_test () =
 
 let ignore_test =
   String.concat ""
-    ["data ThreeVs = One : ThreeVs | Two : ThreeVs | Three : ThreeVs.\n";
-     "interface OneCmd = oc1 : Unit.\n";
-     "interface TwoCmd = tc1 : Unit | tc2 : Unit.\n";
-     "simple : [OneCmd, TwoCmd]ThreeVs -> Int.\n";
-     "simple        x                  = 0.\n";
-     "simple       [t]                 = 1.\n";
-     "main : Int.\n";
-     "main = 0.\n"]
+    ["data ThreeVs = One : ThreeVs | Two : ThreeVs | Three : ThreeVs\n";
+     "interface OneCmd = oc1 : Unit\n";
+     "interface TwoCmd = tc1 : Unit | tc2 : Unit\n";
+     "simple : [OneCmd, TwoCmd]ThreeVs -> Int\n";
+     "simple        x                  = 0\n";
+     "simple       [t]                 = 1\n";
+     "main : Int\n";
+     "main = 0\n"]
 
 let ignore_ts = simple_ts
 
