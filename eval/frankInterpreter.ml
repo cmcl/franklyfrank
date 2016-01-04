@@ -82,7 +82,6 @@ let preprocess_lines inx =
 let loop filename =
   let inx = open_in filename in
   let buf = preprocess_lines inx in
-  print_endline buf;
   let lexbuf = Lexing.from_string buf in
   let () = lexbuf.lex_curr_p <- {
     lexbuf.lex_curr_p with pos_fname = filename

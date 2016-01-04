@@ -1,13 +1,13 @@
 interface State x = get : x
-	          | put : x -> Unit.
+	          | put : x -> Unit
 
-interface Receive x = receive : x.
+interface Receive x = receive : x
 
-runState : x -> [State x]y    -> y.
-runState   x    [put x' -> k] =  runState x' (k Unit).
-runState   x    [get    -> k] =  runState x  (k x).
-runState   x          y       =  y.
+runState : x -> [State x]y    -> y
+runState   x    [put x' -> k] =  runState x' (k Unit)
+runState   x    [get    -> k] =  runState x  (k x)
+runState   x          y       =  y
 
-main : Bool.
-main = runState 3 (gt (get!) 2).
+main : Bool
+main = runState 3 (gt (get!) 2)
 
