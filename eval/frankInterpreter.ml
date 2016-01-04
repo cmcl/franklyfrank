@@ -43,9 +43,47 @@ let rec parse_file lexbuf =
   | [] -> ([], HandlerMap.empty, CtrSet.empty, CmdSet.empty)
   | prog -> translate_with_error prog
 
+let preprocess_lines inx =
+  let last buf = Buffer.length buf - 1 in
+  let nth buf n = Buffer.nth buf n in
+  (* Make it optional to include the dot at the end of a sentence and
+     also guard against special cases e.g. line ends in a comment or we
+     encountered a blank line. *)
+  let last_cond buf =
+    nth buf (last buf) != '.' &&
+    (nth buf ((last buf) - 1) != '-' && nth buf (last buf) != '}') &&
+    nth buf (last buf) != '\n' in
+  let rec process_char_until c buf =
+    let c' = input_char inx in
+    if c' = c then c
+    else if c' = '{' then (* Multi-line comment encountered. *)
+      let d = input_char inx in
+      Buffer.add_char buf c'; Buffer.add_char buf d;
+      (* Eat entire comment. *)
+      (if d = '-' then Buffer.add_char buf (process_char_until '}' buf));
+      process_char_until c buf
+    else if c' = '"' then (* String encountered. *)
+      (Buffer.add_char buf c';
+       (* Eat entire string. *)
+       Buffer.add_char buf (process_char_until '"' buf);
+       process_char_until c buf)
+    else (Buffer.add_char buf c'; process_char_until c buf) in
+  let rec process_lines buf =
+    let nl = process_char_until '\n' buf in
+    let c = input_char inx in
+    (if c != ' ' && c != '\t' && last_cond buf then
+	Buffer.add_char buf '.');
+    Buffer.add_char buf nl; Buffer.add_char buf c;
+    process_lines buf in
+  let buf = Buffer.create 10 in
+  try process_lines buf with
+  | End_of_file -> Buffer.contents buf
+
 let loop filename =
   let inx = open_in filename in
-  let lexbuf = Lexing.from_channel inx in
+  let buf = preprocess_lines inx in
+  print_endline buf;
+  let lexbuf = Lexing.from_string buf in
   let () = lexbuf.lex_curr_p <- {
     lexbuf.lex_curr_p with pos_fname = filename
   } in
