@@ -512,8 +512,9 @@ and type_pattern env (t, p) =
   match t.styp_desc, p.spat_desc with
   | _, Spat_any -> env
   | Styp_ret (es, v), Spat_thunk thk
-    -> { env with
-           tenv = ENV.add thk (TypExp.sus_comp (TypExp.comp t)) env.tenv }
+    -> if ENV.mem thk env.tenv then type_error (thk ^ " already defined")
+       else { env with
+              tenv = ENV.add thk (TypExp.sus_comp (TypExp.comp t)) env.tenv }
   | _, Spat_comp cp -> type_comp_pattern env (t, cp)
   (* Value patterns match value types and the underlying value in returners *)
   | Styp_datatype _, Spat_value vp
@@ -584,8 +585,9 @@ and type_value_pattern env (t, vp) =
   | _, Svpat_any
     -> env
   | _, Svpat_var x
-    -> Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
-       { env with tenv = ENV.add x t env.tenv }
+    -> if ENV.mem x env.tenv then type_error (x ^ " already defined")
+       else (Debug.print "%s |-> %s\n" x (ShowSrcType.show t);
+	     { env with tenv = ENV.add x t env.tenv })
   | Styp_datatype (d, ps), Svpat_ctr (k, vs)
     -> let ctr = unify_ctr env k (length vs) (d, ps) in
        let ts = ctr.sctr_args in
