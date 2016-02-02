@@ -18,11 +18,11 @@ column of patterns is some set P. Then a default case is needed just if the
 set difference T/P is non-empty. The set difference operation is special
 because it will be defined over the signature of types and needs to take
 account of ordering of those signatures. Specifically, we have a partial order
-on value signatures s.t. v <= AllValues for all values where AllValues is the
-an element of the type signature data type. Moreover, the presence of the
-effect variable requires considering the ambient effects as possible values to
-be matched, necessitating a type signature constructor 'AmbientCmds'. It has
-the property that for any command c in the type signature set
+on value signatures s.t. v <= AllValues for all values where AllValues is an
+element of the type signature data type. Moreover, the presence of the effect
+variable requires considering the ambient effects as possible values to be
+matched, necessitating a type signature constructor 'AmbientCmds'. It has the
+property that for any command c in the type signature set
 
                               AmbientCmds <= Cmd c.
 
