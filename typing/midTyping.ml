@@ -74,6 +74,8 @@ module type TSS = sig
   val all_cmds : t -> bool
   (** [all_cmds t] is [true] iff [t] contains only signatures of the form
       TSCmd or TSAmbientCmds and [false] otherwise. *)
+  val is_empty : t -> bool
+  (** [is_empty t] is [true] iff [t] is empty and [false] otherwise. *)
 end
 
 module TypeSigSet = struct
@@ -130,13 +132,15 @@ module TypeSigSet = struct
 
   let is_ambient s =
     let es = M.elements s.set in
-    length es = 1 && snd (List.hd es) = TSAmbientCmds
+    if length es = 1 then snd (List.hd es) = TSAmbientCmds else false
 
   let all_cmds s =
     let all_cmds = function  (_, TSCmd _) -> true
                            | (_, TSAmbientCmds) -> true
 			   | _ -> false in
-    M.for_all all_cmds s.set
+    s.size > 0 && M.for_all all_cmds s.set
+
+  let is_empty s = s.size = 0
 end
 (** Set containing type signatures. *)
 
@@ -1102,7 +1106,23 @@ let rec compute_signature env t =
   | Styp_str -> TypeSigSet.singleton TSAllValues
   | _ -> TypeSigSet.empty
 
-let rec compute_arg_types env t tsg = []
+let rec compute_arg_types env t tsg =
+  match tsg, (unbox t).styp_desc with
+  | TSCtr (_, _), Styp_ret (ts, v) -> compute_arg_types env v tsg
+  | TSCtr (k, n), Styp_datatype (d, ps)
+    -> let ctr = unify_ctr env k n (d, ps) in
+       ctr.sctr_args
+  | TSAllValues, _ -> []
+  | _ , _ -> print_endline (Show.show<type_sig> tsg);
+             print_endline (ShowSrcType.show t); assert false
+  (* | TSAmbientCmds *)
+
+  (* | TSBool b *)
+  (* | TSFloat f *)
+  (* | TSInt n *)
+  (* | TSStr s *)
+  (* | TSCmd (cmd, n) *)
+  (*   -> assert false *)
 
 let env_lookup x env =
   if ENV.mem x env.denv then

@@ -114,6 +114,7 @@ let rtvar v = TypExp.fresh_rigid_tvar v
 let datatype = TypExp.datatype
 let effin ei ps = TypExp.effin ei ~params:ps ()
 let oes = TypExp.effect_var_set
+let ces = TypExp.closed_effect_set
 
 let make_iexp n = Mccomp_cvalue (Mcvalue_ivalue (Mivalue_int n))
 
@@ -186,6 +187,28 @@ let test_list =
    "main : Int\n";
    "main = 0\n"]
   
+let ctr_test =
+  String.concat ""
+    ["data List x = Nil : List x | Cons : x -> List x -> List x\n";
+     "simple :   List Int -> Int\n";
+     "simple   (Cons x xs) = 1\n";
+     "simple        Nil    = 0\n";
+     "main : Int\n";
+     "main = 0\n"]
+
+let ctr_ts =
+  let tvs = datatype "List" [TypExp.int ()] in
+  [ret ces tvs]
+
+let ctr_matrix =
+  [([ctr_pat "Cons" [var_vpat "x"; var_vpat "xs"]], make_iexp 1);
+   ([ctr_pat "Nil" []], make_iexp 0)]
+
+(* This test demonstrates compilation of constructor patterns. *)
+
+let get_ctr_test () =
+  ("ctr_test", ctr_test, ctr_ts, ctr_matrix)
+
 let simple_test =
   String.concat ""
     ["data ThreeVs = One : ThreeVs | Two : ThreeVs | Three : ThreeVs\n";
@@ -265,5 +288,6 @@ let main =
   print_endline (Show.show<src_type> (env_lookup "List" env));
   (* let tree = compile env tsPA pa in *)
   (* print_endline (Show.show<dtree> tree) *)
+  run_test (get_ctr_test ());
   run_test (get_simple_test ());
   run_test (get_ignore_test ())

@@ -54,6 +54,8 @@ module type TSS = sig
   val all_cmds : t -> bool
   (** [all_cmds t] is [true] iff [t] contains only signatures of the form
       TSCmd or TSAmbientCmds and [false] otherwise. *)
+  val is_empty : t -> bool
+  (** [is_empty t] is [true] iff [t] is empty and [false] otherwise. *)
 end
 
 module TypeSigSet : TSS

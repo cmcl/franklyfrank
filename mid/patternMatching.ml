@@ -256,4 +256,7 @@ let rec compile env ts m =
 	     print_endline (Show.show<type_sig list> es);
 	     type_error ("Unhandled pattern(s) e.g. [" ^ cmd ^ " _ -> _]")
 	   else Switch (cases ++ [CseDefault (compile env ts dm)])
-	 else type_error ("Unhandled patterns.")
+	 else if TypeSigSet.is_empty diff then
+	   Switch cases
+	 else
+	   type_error ("Unhandled patterns.")
