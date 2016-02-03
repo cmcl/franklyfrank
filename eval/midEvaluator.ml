@@ -8,10 +8,13 @@
 
 open MidTranslate
 open MidTree
+open MidTyping
 open Monad
 open ParseTree
 open ParseTreeBuilder
+open PatternMatching
 open Printf
+open ListUtils
 
 module type EVALCOMP = sig
   include MONAD
@@ -25,18 +28,28 @@ module type EVALCOMP = sig
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
 
+  module type EVALENVT = sig
+    include Map.S with type key := string
+    type mt = comp t
+  end
+
+  module ENV : EVALENVT
+
   val (>=>) : (value -> 'a t) -> ('a -> 'b t) -> value -> 'b t
   val sequence : ('a t) list -> ('a list) t
   val command : string -> value list -> comp
   val show : comp -> string
   val vshow : value -> string
 
+  val eval_dtree : ENV.mt -> comp list -> dtree -> comp
+  (** [eval_dtree cs t] evaluates the decision tree [t] w.r.t the stack of
+      computations [cs] returning a computaton. The stack is assumed to
+      initially hold the subject value. *)
+
   val eval : MidTranslate.HandlerMap.mt -> MidTree.prog -> comp
 end
 
 module EvalComp : EVALCOMP = struct
-  module ENV = Map.Make(String)
-
   exception UserDefShadowingBuiltin of string
 
   type 'a t =
@@ -52,6 +65,17 @@ module EvalComp : EVALCOMP = struct
     | VStr of string
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
+
+  module type EVALENVT = sig
+    include Map.S with type key := string
+    type mt = comp t
+  end
+
+  module ENV = struct
+    module M = Map.Make(String)
+    include M
+    type mt = comp M.t
+  end
 
   (** Monadic operations *)
   let return v = Return v
@@ -99,8 +123,30 @@ module EvalComp : EVALCOMP = struct
   let is_some ox = match ox with Some _ -> true | _ -> false
 
   let len_cmp vs vs' = List.length vs = List.length vs'
-  let zip = List.combine
   let foldr = List.fold_right
+
+  (** match a value against a type signature and return the updated value and
+      any child values. *)
+  let match_value_sig env v tsg =
+    match v, tsg with
+    | _, TSAllValues None -> Some (env, [])
+    | _, TSAllValues (Some x) -> Some (ENV.add x (return v) env, [])
+    | VBool b, TSBool b' -> if b = b' then Some (env, []) else None
+    | VInt n, TSInt n' -> if n = n' then Some (env, []) else None
+    | VFloat f, TSFloat f' -> if f = f' then Some (env, []) else None
+    | VStr s, TSStr s' -> if s = s' then Some (env, []) else None
+    | VCon (k, vs), TSCtr (k', n)
+      -> if k = k' && length vs = n then
+	  Some (env, map return vs)
+	else None
+    | _ , _ -> None
+
+  (** Top-level matching procedure which will return None or a pair of an
+      updated environment and any child values to be matched. *)
+  let match_sig env c tsg =
+    match c with
+    | Return v -> match_value_sig env v tsg
+    | _ -> assert false (* Commands not handled yet. *)
 
   (* Return v is matched by x
    * Return (suc v) is matched by suc x and x *)
@@ -374,6 +420,33 @@ module EvalComp : EVALCOMP = struct
   and eval_cmd env c =
     return (VMultiHandler
 	      (fun cs -> sequence cs >>= fun vs -> command c vs))
+
+  let rec eval_dtree env cs t =
+    (* Mccomp_cvalue (Mcvalue_ivalue (Mivalue_int 0)) *)
+    let rec eval_case c cses =
+      match cses with
+      | (CseSig (tsg, t) as cse) :: cses'
+	-> begin match match_sig env c tsg with
+	   | Some (env', args) -> (env', args, cse)
+	   | None -> eval_case c cses'
+	   end
+      | (CseDefault t as cse) :: cses' -> (env, [], cse)
+      | _ -> failwith "No default case in switch cases list" in
+    match t with
+    | Leaf k -> eval_ccomp env k
+    | Swap (i, t) -> eval_dtree env (swap cs 0 i) t
+    | Switch cases -> let (c, cs') = (List.hd cs, List.tl cs) in
+                      begin
+		        match eval_case c cases with
+			| (env', args, CseSig (_, t))
+			  -> eval_dtree env' (args ++ cs') t
+			| (env', [], CseDefault t) -> eval_dtree env cs' t
+			| _ -> assert false
+		      end
+    | Fail -> failwith "Decision tree evaluation unexpectedly failed"
+
+
+
 
 end
 

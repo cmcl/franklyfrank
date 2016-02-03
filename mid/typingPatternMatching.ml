@@ -4,6 +4,8 @@ open ErrorHandling
 open Lexer
 open Lexing
 open ListUtils
+open MidEvaluator
+open EvalComp
 open MidTranslate
 open MidTree
 open MidTyping
@@ -196,6 +198,8 @@ let ctr_test =
      "main : Int\n";
      "main = 0\n"]
 
+let ctr_cs = map return [VCon ("Cons", [VInt 1; VCon ("Nil", [])])]
+
 let ctr_ts =
   let tvs = datatype "List" [TypExp.int ()] in
   [ret ces tvs]
@@ -207,7 +211,7 @@ let ctr_matrix =
 (* This test demonstrates compilation of constructor patterns. *)
 
 let get_ctr_test () =
-  ("ctr_test", ctr_test, ctr_ts, ctr_matrix)
+  ("ctr_test", ctr_test, ctr_cs, ctr_ts, ctr_matrix)
 
 let simple_test =
   String.concat ""
@@ -235,7 +239,7 @@ let simple_matrix =
 (* This test demonstrates an unhandled command tc1. *)
 
 let get_simple_test () =
-  ("simple_test", simple_test, simple_ts, simple_matrix)
+  ("simple_test", simple_test, [], simple_ts, simple_matrix)
 
 (* This test demonstrates ignoring the entire computation. It demonstrates
    the requirement of a default case. *)
@@ -258,29 +262,21 @@ let ignore_matrix =
    ([thunk_pat "t"], make_iexp 1)]
 
 let get_ignore_test () =
-  ("ignore_test", ignore_test, ignore_ts, ignore_matrix)
+  ("ignore_test", ignore_test, [], ignore_ts, ignore_matrix)
 
-let run_test (n, test, ts, matrix) =
+let run_test (n, test, cs, ts, matrix) =
   print_endline ("\n\n----\nRunning " ^ n ^ "\n----");
   let env = get_typing_env (n, test) in
   let tree = compile env ts matrix in
-  let tsg = compute_signature env (List.hd ts) in
-  let (pss,rs) = List.split matrix in
-  let ps = List.flatten pss in
-  let hs = compute_heads ps in
-  print_endline ("---type signature---");
-  print_endline (Show.show<type_sig list> (TypeSigSet.elements tsg));
-  print_endline ("---pattern heads---");
-  print_endline (Show.show<type_sig list> (TypeSigSet.elements hs));
-  let d = TypeSigSet.diff tsg hs in
-  print_endline ("---set difference---");
-  print_endline (Show.show<type_sig list> (TypeSigSet.elements d));
+  let c = eval_dtree ENV.empty cs tree in
+  print_endline (Show.show<dtree> tree);
+  print_endline ("eval_dtree EMPTY cs tree = " ^ (show c));
   print_endline ("----\nFinished " ^ n ^ "\n----")
 
 let main =
   let env = get_typing_env ("test_list", test_list) in
   let t1 = TypeSigSet.singleton TSAmbientCmds in
-  let t2 = TypeSigSet.singleton TSAllValues in
+  let t2 = TypeSigSet.singleton (TSAllValues None) in
   let b = TypeSigSet.is_ambient t1 in
   print_endline ("Test is_ambient ... " ^ (string_of_bool b));
   let b = TypeSigSet.is_ambient (TypeSigSet.union t1 t2) in
@@ -289,5 +285,5 @@ let main =
   (* let tree = compile env tsPA pa in *)
   (* print_endline (Show.show<dtree> tree) *)
   run_test (get_ctr_test ());
-  run_test (get_simple_test ());
-  run_test (get_ignore_test ())
+  (* run_test (get_simple_test ()); *)
+  (* run_test (get_ignore_test ()) *)

@@ -1,4 +1,4 @@
-<parsing> or <mid> or <typing> or <util>: include
+<parsing> or <eval> or <mid> or <typing> or <util>: include
 true: use_menhir
 true: syntax(camlp4o)
 true: package(deriving), package(deriving.syntax)

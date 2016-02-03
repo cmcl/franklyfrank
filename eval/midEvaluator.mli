@@ -9,6 +9,7 @@
 
 open Monad
 open ParseTree
+open PatternMatching
 
 (*i | k vs
    | command
@@ -29,6 +30,13 @@ module type EVALCOMP = sig
     | VCon of string * value list
     | VMultiHandler of (comp list -> comp)
 
+  module type EVALENVT = sig
+    include Map.S with type key := string
+    type mt = comp t
+  end
+
+  module ENV : EVALENVT
+
   val (>=>) : (value -> 'a t) -> ('a -> 'b t) -> value -> 'b t
   (** Kleisli composition of computations *)
 
@@ -36,6 +44,11 @@ module type EVALCOMP = sig
   val command : string -> value list -> comp
   val show : comp -> string
   val vshow : value -> string
+
+  val eval_dtree : ENV.mt -> comp list -> dtree -> comp
+  (** [eval_dtree cs t] evaluates the decision tree [t] w.r.t the stack of
+      computations [cs] returning a computaton. The stack is assumed to
+      initially hold the subject value. *)
 
   val eval : MidTranslate.HandlerMap.mt -> MidTree.prog -> comp
   (** Evaluation function *)

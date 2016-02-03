@@ -40,7 +40,7 @@ type env =
 type type_sig =
   TSAmbientCmds (* Greatest lower bound for TSCmd signatures w.r.t ambient
 		   effects. *)
-| TSAllValues
+| TSAllValues of string option
 (* The top element of the lattice for value type signatures. *)
 | TSBool of bool
 | TSFloat of float
@@ -117,17 +117,30 @@ module TypeSigSet = struct
   let union s1 s2 =
     foldl (fun s x -> add x s) empty ((elements s1) ++ (elements s2))
 
-  let remove_all_values s =
-    let is_value tsg =
-      match tsg with
-      | TSBool _ | TSFloat _ | TSInt _ | TSStr _ | TSCtr _ -> true
-      | _ -> false in
-    let s' = List.filter (not @ is_value) (elements s) in
+  let is_value tsg =
+    match tsg with
+    | TSBool _ | TSFloat _ | TSInt _ | TSStr _ | TSCtr _ -> true
+    | _ -> false
+
+  (** The tag is irrelevant for the type signature sets. *)
+  let is_top_val =
+    function  TSAllValues _ -> true
+            |       _       -> false
+
+  let contains_top_val s = List.exists is_top_val (elements s)
+
+  let filter_set p s =
+    let s' = List.filter p (elements s) in
     foldl (fun s x -> add x s) empty s'
 
+  let remove_all_values s = filter_set (not @ is_value) s
+
+  let remove_top_val s = filter_set (not @ is_top_val) s
+
   let diff s1 s2 =
-    let s1' = if mem TSAllValues s2 then remove_all_values s1 else s1 in
-    let s1' = foldl (fun s x -> remove x s) s1' (elements s2) in
+    let s1' = if contains_top_val s2 then remove_all_values s1 else s1 in
+    let rm s x = if is_top_val x then remove_top_val s else remove x s in
+    let s1' = foldl rm s1' (elements s2) in
     s1'
 
   let is_ambient s =
@@ -1079,13 +1092,13 @@ let rec compute_signature env t =
        let make_tsg ctr = TSCtr (ctr.sctr_name, length ctr.sctr_args) in
        let ctrs = map make_tsg cs in
        foldl (fun s c -> TypeSigSet.add c s) TypeSigSet.empty ctrs
-  | Styp_thunk _ -> TypeSigSet.singleton TSAllValues
+  | Styp_thunk _ -> TypeSigSet.singleton (TSAllValues None)
   | Styp_tvar _ -> TypeSigSet.empty
   | Styp_rtvar ("£", _) -> TypeSigSet.singleton TSAmbientCmds
   | Styp_rtvar ("@", _) -> TypeSigSet.empty
   | Styp_rtvar _
     -> (* Captures all possible values. *)
-       TypeSigSet.singleton TSAllValues
+       TypeSigSet.singleton (TSAllValues None)
   | Styp_ftvar _ -> TypeSigSet.empty
   | Styp_eff_set _ -> TypeSigSet.empty
   | Styp_comp (_, _) -> TypeSigSet.empty
@@ -1101,9 +1114,9 @@ let rec compute_signature env t =
   | Styp_bool
     -> TypeSigSet.add (TSBool true)
     (TypeSigSet.add (TSBool false) TypeSigSet.empty)
-  | Styp_int -> TypeSigSet.singleton TSAllValues
-  | Styp_float -> TypeSigSet.singleton TSAllValues
-  | Styp_str -> TypeSigSet.singleton TSAllValues
+  | Styp_int -> TypeSigSet.singleton (TSAllValues None)
+  | Styp_float -> TypeSigSet.singleton (TSAllValues None)
+  | Styp_str -> TypeSigSet.singleton (TSAllValues None)
   | _ -> TypeSigSet.empty
 
 let rec compute_arg_types env t tsg =
@@ -1112,7 +1125,7 @@ let rec compute_arg_types env t tsg =
   | TSCtr (k, n), Styp_datatype (d, ps)
     -> let ctr = unify_ctr env k n (d, ps) in
        ctr.sctr_args
-  | TSAllValues, _ -> []
+  | TSAllValues _ , _ -> []
   | _ , _ -> print_endline (Show.show<type_sig> tsg);
              print_endline (ShowSrcType.show t); assert false
   (* | TSAmbientCmds *)

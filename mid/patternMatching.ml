@@ -109,8 +109,8 @@ let specialise tsg m =
     | _ -> (false, []) in
   match tsg with
   | TSAmbientCmds -> assert false (* We never specialise for ambient cmds. *)
-  | TSAllValues -> let val_spec p = defaults_for_values p 0 in
-		   specialise_using_fun val_spec m
+  | TSAllValues _ -> let val_spec p = defaults_for_values p 0 in
+		     specialise_using_fun val_spec m
   | TSBool b -> let bool_spec p =
 		  match p.spat_desc with
 		  | Spat_value (Svpat_bool b') -> (b = b', [])
@@ -185,8 +185,9 @@ let compute_heads ps =
     | Spat_value vp -> begin
                          match vp with
 			 | Svpat_any
-			 | Svpat_var _
-			   -> TypeSigSet.singleton TSAllValues
+			   -> TypeSigSet.singleton (TSAllValues None)
+			 | Svpat_var x
+			   -> TypeSigSet.singleton (TSAllValues (Some x))
 			 | Svpat_ctr (k, vs)
 			   -> TypeSigSet.singleton (TSCtr (k, length vs))
 			 | Svpat_int n -> TypeSigSet.singleton (TSInt n)
@@ -209,8 +210,6 @@ let matches vs m =
   match foldl find_match (None, 0) m with
   | (Some j, _) -> Some j
   | (None, _) -> None
-
-let eval_dtree vs t = Mccomp_cvalue (Mcvalue_ivalue (Mivalue_int 0))
 
 let rec compile env ts m =
   let make_case t ts' tsg =

@@ -17,7 +17,7 @@ type env
 type type_sig =
   TSAmbientCmds (* Greatest lower bound for TSCmd signatures w.r.t ambient
 		   effects. *)
-| TSAllValues
+| TSAllValues of string option
 (* The top element of the lattice for value type signatures. *)
 | TSBool of bool
 | TSFloat of float

@@ -93,11 +93,6 @@ val matches : value vector -> pmatrix -> int option
     i.e. [vs] matches row [Some j]. [None] is returned if [vs] does not match
     any row in [p].*)
 
-val eval_dtree : value list -> dtree -> action
-(** [eval vs t] evaluates the decision tree [t] w.r.t the stack of values [vs]
-    returning an action. The stack is assumed to initially hold the subject
-    value. *)
-
 val compile : MidTyping.env -> ParseTree.src_type vector -> cmatrix -> dtree
 (** [compile env ts m] returns the decision tree corresponding to the clause
     matrix [m] with respect to the typing environment [env] and the vector of
