@@ -1121,20 +1121,36 @@ let rec compute_signature env t =
 
 let rec compute_arg_types env t tsg =
   match tsg, (unbox t).styp_desc with
-  | TSCtr (_, _), Styp_ret (ts, v) -> compute_arg_types env v tsg
+  | TSCtr (_, _), Styp_ret (_, v) -> compute_arg_types env v tsg
   | TSCtr (k, n), Styp_datatype (d, ps)
     -> let ctr = unify_ctr env k n (d, ps) in
        ctr.sctr_args
+  | TSCmd (c, _), Styp_ret (es, v)
+    -> (* TODO: Package the below into a separate function, it's repeated in
+          multiple places throughout this module. *)
+       let eis = filter_map just_eis es in
+       let eis = map (fun (ei, ts) -> (ei, ts, find_interface ei env)) eis in
+       (* Instantiate the command and the parameters of the interface *)
+       let (ei, ts, ps, cmd) = find_cmd c eis "compute_arg_types defect" in
+       let (env, ps) = map_accum inst env ps in
+       let cmd = inst_cmd env cmd in
+       (* Unify the instantiated parameters with the actual parameters
+          provided in the effect set. This will give concrete types to the
+          command's arguments and result type. *)
+       let _ = map (uncurry unify) (zip ts ps) in
+       let oes = TypExp.effect_var_set in
+       let arg = TypExp.returner cmd.scmd_res ~effs:oes () in
+       let c = TypExp.comp ~args:[arg] t in
+       let k = TypExp.sus_comp c in
+       cmd.scmd_args ++ [k]
   | TSAllValues _ , _ -> []
   | _ , _ -> print_endline (Show.show<type_sig> tsg);
              print_endline (ShowSrcType.show t); assert false
   (* | TSAmbientCmds *)
-
   (* | TSBool b *)
   (* | TSFloat f *)
   (* | TSInt n *)
   (* | TSStr s *)
-  (* | TSCmd (cmd, n) *)
   (*   -> assert false *)
 
 let env_lookup x env =

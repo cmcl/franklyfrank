@@ -213,6 +213,40 @@ let ctr_matrix =
 let get_ctr_test () =
   ("ctr_test", ctr_test, ctr_cs, ctr_ts, ctr_matrix)
 
+let closed_test =
+  String.concat ""
+    ["data List x = Nil : List x | Cons : x -> List x -> List x\n";
+     "interface OneCmd = oc1 : Unit\n";
+     "interface TwoCmd = tc1 : Unit | tc2 : Unit\n";
+     "simple : [OneCmd, TwoCmd]List Int -> Int\n";
+     "simple     [oc1 -> k]          = 1\n";
+     "simple     [tc1 -> k]          = 2\n";
+     "simple     [tc2 -> k]          = 3\n";
+     "simple   (Cons x xs) = 4\n";
+     "simple        Nil    = 0\n";
+     "main : Int\n";
+     "main = 0\n"]
+
+let closed_cs = [command "tc1" []]
+
+let closed_ts =
+  let ocmd = effin "OneCmd" [] in
+  let tcmd = effin "TwoCmd" [] in
+  let tvs = datatype "List" [TypExp.int ()] in
+  [ret (ces ++ [ocmd;tcmd]) tvs]
+
+let closed_matrix =
+  [([cmd_pat "oc1" [] "k"], make_iexp 1);
+   ([cmd_pat "tc1" [] "k"], make_iexp 2);
+   ([cmd_pat "tc2" [] "k"], make_iexp 3);
+   ([ctr_pat "Cons" [var_vpat "x"; var_vpat "xs"]], make_iexp 4);
+   ([ctr_pat "Nil" []], make_iexp 0)]
+
+(* This test demonstrates compilation of closed effect sets. *)
+
+let get_closed_test () =
+  ("closed_test", closed_test, closed_cs, closed_ts, closed_matrix)
+
 let simple_test =
   String.concat ""
     ["data ThreeVs = One : ThreeVs | Two : ThreeVs | Three : ThreeVs\n";
@@ -284,6 +318,7 @@ let main =
   print_endline (Show.show<src_type> (env_lookup "List" env));
   (* let tree = compile env tsPA pa in *)
   (* print_endline (Show.show<dtree> tree) *)
-  run_test (get_ctr_test ());
+  (* run_test (get_ctr_test ()); *)
+  run_test (get_closed_test ());
   (* run_test (get_simple_test ()); *)
   (* run_test (get_ignore_test ()) *)

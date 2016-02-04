@@ -141,12 +141,18 @@ module EvalComp : EVALCOMP = struct
 	else None
     | _ , _ -> None
 
+  let match_cmd_sig env (c, vs, r) tsg =
+    match tsg with
+    | TSCmd (c', n)
+      -> if c = c' then Some (env, map return (vs ++ [(lift r)])) else None
+    | _ -> None
+
   (** Top-level matching procedure which will return None or a pair of an
       updated environment and any child values to be matched. *)
   let match_sig env c tsg =
     match c with
     | Return v -> match_value_sig env v tsg
-    | _ -> assert false (* Commands not handled yet. *)
+    | Command (cmd, vs, r) -> match_cmd_sig env (cmd, vs, r) tsg
 
   (* Return v is matched by x
    * Return (suc v) is matched by suc x and x *)
