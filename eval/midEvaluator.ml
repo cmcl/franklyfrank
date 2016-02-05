@@ -203,6 +203,11 @@ module EvalComp : EVALCOMP = struct
     | Some env ->
       begin
 	match c, p.spat_desc with
+	(* NOTE: this is where the problem of forwarding lies. We are not
+	   checking the command; these patterns only match if the command is
+	   in the type signature of this argument. Is this information
+	   available here? I guess this point is moot now that we are doing
+	   compilation in separate steps. *)
 	| _ , Spat_any -> Some env
 	| _ , Spat_thunk thk ->
 	  (* Return a suspended computation that will just perform the inner

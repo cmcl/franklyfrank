@@ -119,17 +119,15 @@ simple : [OneCmd, TwoCmd]ThreeVs -> Int
 simple        x                  = 0
 simple       [_]                 = 1
 
-the presence of the underscore gives the pattern matching nontrivial
-semantics. Indeed, the above desugars to:
+the above desugars to:
 
 simple : [OneCmd, TwoCmd]ThreeVs -> Int
 simple        x                  = 0
 simple    [oc1 -> k]             = 1
 simple    [tc1 -> k]             = 1
 simple    [tc2 -> k]             = 1
-simple    [?c  -> k]             = let x = c! in simple (k x)
 
-How does the pattern matching compiler represent the final pattern?
+We also need to consider forwarding of unhandled (ambient) commands.
 
 A more complex example involving desugaring of thunk patterns:
 
@@ -137,3 +135,39 @@ pipe : [Send X]Unit -> [Recv X]Y  -> [Abort]Y
 pipe       [ __ ]           y      =   y
 pipe         ()        [recv -> k] =  abort!
 pipe   [send x -> s]   [recv -> r] = pipe (s ()) (r x)
+
+-----
+
+I now have a better understanding of how to structure pattern matching
+compilation. it follows a three stage process. first we take the source level
+patterns and desugar them to mid-level patterns. second we compile the
+mid-level patterns and compile them to a decision tree using an algorithm
+inspired by standard approaches (principally maranget and petterrson). third
+we evaluate the decision tree against untyped computations.
+
+decomposition of the first stage
+--------------------------------
+
+desugaring is composed of two stages. first we desugar thunk patterns into
+simple type signatures consisting of variables, constructors, or
+commands. second we add forwarding clauses to the matrix for each column with
+an open effect set, including providing RHSes for recursively calling the
+handler.
+
+decomposition of the second stage
+---------------------------------
+
+the compilation scheme will need to be adapted to handle the new pattern
+constructs, namely inspecting of an unhandled command ([?c -> k]) and thunking
+of an unhandled computation ([?t]). i can envisage this requiring two new
+"type signatures", TSFwdCmd (c, vs, k) and TSThunk t. the remaining question
+to resolve is how to specialise on these new patterns and what their children
+and their children's types should be. the main issue is, in the case of [?c ->
+k], we do not know a priori the number of arguments the command expects (or
+indeed the actual name of the command we are executing).
+
+decomposition of the third stage
+--------------------------------
+
+evaluation needs to handle the new pattern constructs. binding the actual
+command and its arguments to the generated names of the type signature.
