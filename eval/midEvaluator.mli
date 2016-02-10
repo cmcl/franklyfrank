@@ -17,6 +17,9 @@ open ParseTree
    | local-handler (handler-def, locals)
    | continuation *)
 
+type prog = MidTree.prog
+type mt = MidTranslate.HandlerMap.mt
+
 module type EVALCOMP = sig
   include MONAD
 
@@ -37,7 +40,7 @@ module type EVALCOMP = sig
   val show : comp -> string
   val vshow : value -> string
 
-  val eval : MidTranslate.HandlerMap.mt -> MidTree.prog -> comp
+  val eval : MidTyping.env -> mt -> prog -> comp
   (** Evaluation function *)
 end
 

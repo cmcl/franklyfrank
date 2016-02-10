@@ -69,6 +69,14 @@ val compute_arg_types : env -> src_type -> type_sig -> src_type list
     signature. [t] may provide information to the procedure such as the type
     at which to instantiate any parameters. *)
 
+val compute_cmds : env -> src_type -> string list
+(** [compute_cmds env t] returns the list of commands within the domain of the
+    type [t] w.r.t to the environment [env]. *)
+
+val get_handled_cmds : env -> string -> string list list
+(** [get_handled_cmds env hdr] returns the list of handled commands at each
+    argument position (peg) for the handler [hdr]. *)
+
 val env_lookup : string -> env -> src_type
 (** [env_lookup x env] lookup the string [x] in the typing environment [env]
     returning the corresponding type. *)

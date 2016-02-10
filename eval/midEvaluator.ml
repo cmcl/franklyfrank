@@ -6,12 +6,17 @@
  ***********************************************************************
  *)
 
+open ListUtils
 open MidTranslate
 open MidTree
+open MidTyping
 open Monad
 open ParseTree
 open ParseTreeBuilder
 open Printf
+
+type prog = MidTree.prog
+type mt = MidTranslate.HandlerMap.mt
 
 module type EVALCOMP = sig
   include MONAD
@@ -31,7 +36,7 @@ module type EVALCOMP = sig
   val show : comp -> string
   val vshow : value -> string
 
-  val eval : MidTranslate.HandlerMap.mt -> MidTree.prog -> comp
+  val eval : MidTyping.env -> mt -> prog -> comp
 end
 
 module EvalComp : EVALCOMP = struct
@@ -214,10 +219,10 @@ module EvalComp : EVALCOMP = struct
     let add_blt (n,d) env = ENV.add n d env in
     List.fold_right add_blt blts ENV.empty
 
-  let rec eval hmap prog =
+  let rec eval tenv hmap prog =
     let blt_env = get_builtins () in
     let hdrs = List.map (fun (k, h) -> h) (HandlerMap.bindings hmap) in
-    let pre_env = List.fold_right construct_env_entry hdrs blt_env in
+    let pre_env = List.fold_right (construct_env_entry tenv) hdrs blt_env in
     let rec env' =
       lazy (ENV.map (fun f ->
 	return (VMultiHandler (fun cs -> f (Lazy.force env') cs))) pre_env) in
@@ -243,13 +248,13 @@ module EvalComp : EVALCOMP = struct
     | Command (c, _, _) -> failwith ("Command: " ^ c ^ " not handled")
     |    _     -> assert false (* Command not handled *)
 
-  and construct_env_entry hdr env =
+  and construct_env_entry tenv hdr env =
     if ENV.mem hdr.mhdr_name env then
       raise (UserDefShadowingBuiltin hdr.mhdr_name)
     else
       ENV.add hdr.mhdr_name (fun env cs ->
 	Debug.print "Evaluating handler %s...\n" hdr.mhdr_name;
-	eval_tlhdrs env hdr cs) env
+	eval_tlhdrs env hdr cs (get_handled_cmds tenv hdr.mhdr_name)) env
 
   (* Give precedence to ob. *)
   and extend_env name oa ob =
@@ -257,11 +262,23 @@ module EvalComp : EVALCOMP = struct
     | Some _ -> ob
     | None -> oa
 
-  and eval_tlhdrs env hdr cs =
+  and eval_tlhdrs env hdr cs tss =
     let cls = hdr.mhdr_defs in
-    match List.fold_left (eval_clause env cs) None cls with
-    | None -> fwd_clauses env hdr cs
-    | Some c -> c
+    let rec fwd_cmds tss cs rcs =
+      match tss, cs with
+      | ts :: tss', Command (c, vs, k) :: cs' when not (List.mem c ts)
+	-> command c vs >>=
+              fun x -> let cs = (k x) :: cs' in
+		       fwd_cmds tss cs rcs
+      | _ :: tss', c :: cs' -> fwd_cmds tss' cs' (c :: rcs)
+      | [], [] -> let cs' = List.rev rcs in
+		  begin
+	            match List.fold_left (eval_clause env cs') None cls with
+		    | None -> assert false
+		    | Some c -> c
+                  end
+      |  _,_ -> assert false in
+    fwd_cmds tss cs []
 
   and eval_clause env cs res (ps, cc) =
     match res with
@@ -278,31 +295,6 @@ module EvalComp : EVALCOMP = struct
 		Debug.print "true\n"; Some (eval_ccomp env'' cc)
 	   | None -> Debug.print "false\n"; None
          end
-
-  and fwd_clauses env hdr cs =
-    List.fold_right (fwd_cls env hdr) (diag (gen_cpats cs)) pat_match_fail
-
-  and repeat x n = if n <= 0 then [] else x :: (repeat x (n-1))
-
-  and gen_cpats xs =
-    let n = List.length xs in
-    List.combine (repeat [] n) (repeat xs n)
-
-  and diag = function
-    | (ys, x :: xs) :: xss -> (ys, x, xs) :: diag (List.map shift xss)
-    |           _          ->             []
-
-  and shift = function
-    | (ys, x :: xs) -> (x :: ys, xs)
-    |    _  as p    ->       p
-
-  and fwd_cls env hdr (cs1, c, cs2) acc =
-    match c with
-    | Command (s, vs, r)
-      -> command s vs >>=
-           fun z -> let cs = (List.rev cs1) @ [r z] @ cs2 in
-		    eval_tlhdrs env hdr cs
-    | _ -> acc
 
   and pat_match_fail = command "PatternMatchFail" []
 
@@ -334,7 +326,7 @@ module EvalComp : EVALCOMP = struct
 	mhdr_type = t;
 	mhdr_defs = cls
       }
-    in eval_tlhdrs env hdr cs
+    in eval_tlhdrs env hdr cs (repeat [] (length cs))
 
   and eval_cvalue env cv =
     match cv with

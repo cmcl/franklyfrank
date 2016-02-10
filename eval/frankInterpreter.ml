@@ -91,7 +91,7 @@ let loop filename =
   Debug.print "%s" (ShowMidProg.show mtree);
   let (t, env) = type_with_error mtree in
   Debug.print "Program typechecked with main : %s" (ShowSrcType.show t);
-  let res = EvalComp.eval hmap mtree in
+  let res = EvalComp.eval env hmap mtree in
   Debug.print "%s\n" (EvalComp.show res);
   close_in inx
 

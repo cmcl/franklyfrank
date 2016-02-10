@@ -1102,6 +1102,25 @@ let rec compute_signature env t =
 
 let rec compute_arg_types env t tsg = []
 
+let rec compute_cmds env t =
+  match (unbox t).styp_desc with
+  | Styp_ret (ts, v) -> List.flatten (map (compute_cmds env) ts)
+  | Styp_effin (ei, ts)
+    -> let (_, cs) = find_interface ei env in
+       let get_name cmd = cmd.scmd_name in
+       let cmds = map get_name cs in
+       cmds
+  | _ -> []
+
+let get_handled_cmds env hdr =
+  try
+    let t = ENV.find hdr env.tenv in
+    let (args, _) = destruct_comp_type t in
+    map (compute_cmds env) args
+  with
+    | Not_found -> []
+
+
 let env_lookup x env =
   if ENV.mem x env.denv then
     let (ps, cs) = ENV.find x env.denv in

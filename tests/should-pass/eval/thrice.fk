@@ -15,12 +15,8 @@ abort = bind (aborting!) {}.
 semi : x -> y -> y.
 semi   x    y =  y.
 
-pipe : [Send x, Console]Unit -> [Receive x]y -> [Abort,Console]y.
-pipe    [send x -> s]       y         =     y.
-pipe        Unit            y         =     y.
-{- Compiler generated clauses for all commands not handled by handler. -}
-pipe   [putStrLn s -> k]   [t]        = let x = putStrLn s in pipe (k x) (t!).
-{- End of compiler generated clause list. -}
+pipe : [Send x]Unit -> [Receive x]y -> [Abort]y.
+pipe         [_]             y         =     y.
 pipe        Unit            [_]        =   abort!.
 pipe   [send x -> s]   [receive -> r]  =  pipe (s Unit) (r x).
 
