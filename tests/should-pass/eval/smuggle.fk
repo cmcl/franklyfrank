@@ -1,0 +1,46 @@
+data Either a b = Left : a -> Either a b
+                | Right : b -> Either a b.
+
+interface State x = get : x
+	          | put : x -> Unit.
+
+interface Abort = abort : Zero.
+
+semi : a -> b -> b.
+semi x y = y.
+
+{- k's peg type says this is ok (Sig = empty, so
+-- it doesn't matter whose candidate rule) -}
+smuggle : [State a]x -> Either ({a -> [State a]x}) x
+smuggle [get -> k] = Left k
+smuggle [put s -> k] = smuggle (k Unit)
+smuggle      x       = Right x
+
+{- let's have a thing which locally allows abort -}
+catch : [Abort]x -> {x} -> x
+catch x f = x
+catch [abort -> k] f = f!
+
+evalState : s -> [State s]a -> a.
+evalState   s    v             =  v.
+evalState   s    [put s' -> k] =  evalState s' (k Unit).
+evalState   s    [get    -> k] =  evalState s  (k s).
+
+{- here's a thing which post-processes a smuggle, running the smuggled
+   continuation with the regular state handler -}
+juggle : a -> Either ({a -> [State a]x}) x -> x
+juggle a (Right x) = x
+juggle a (Left k) = evalState a (k a)
+
+main : Int.
+main = juggle 0 (catch (smuggle (semi (get!) (abort!))) {0}).
+
+{- now
+juggle a (catch (smuggle (get! ; abort!)) {...})
+-- becomes
+juggle a (catch (left {x -> abort!}) {...})
+-- then
+juggle a (left {x -> abort!})
+-- then
+state a (abort!)
+-}
